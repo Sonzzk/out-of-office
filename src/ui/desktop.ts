@@ -1,4 +1,5 @@
 import type { GameState } from "../sim/state";
+import { onChange } from "../store";
 import { apps } from "./apps";
 import { focus, onWindowsChanged, openApp, openWindows } from "./windows";
 
@@ -51,6 +52,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   };
   tick();
   setInterval(tick, 10_000);
+  onChange(tick);
 
   // First boot: the welcome memo and the map are already open.
   openApp(desk, list[0]);
