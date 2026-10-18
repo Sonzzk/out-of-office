@@ -9,12 +9,12 @@ const errors = [];
 const page = await browser.newPage({ viewport: { width: 1400, height: 800 } });
 page.on("pageerror", (e) => errors.push(e.message));
 await page.goto("http://localhost:5216/?seed=7&fast");
-await page.waitForSelector("#ob-name, #desk .win");
+await page.waitForSelector("#ob-name, #desk .ic");
 if (await page.locator("#ob-name").count()) {
   await page.fill("#ob-name", "Amos");
   await page.click("[data-sign]");
 }
-await page.waitForSelector("#desk .win");
+await page.waitForSelector("#desk .ic");
 const fail = (m) => { errors.push(m); };
 
 await page.click('[data-open="hr"]');

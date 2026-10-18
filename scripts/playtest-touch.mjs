@@ -17,12 +17,12 @@ async function open(ctxOptions, query = "") {
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`http://localhost:5211/?seed=71&fast${query}`);
-  await page.waitForSelector("#ob-name, #desk .win");
+  await page.waitForSelector("#ob-name, #desk .ic");
   if (await page.locator("#ob-name").count()) {
     await page.fill("#ob-name", "Amos");
     await page.tap("[data-sign]").catch(() => page.click("[data-sign]"));
   }
-  await page.waitForSelector("#desk .win");
+  await page.waitForSelector("#desk .ic");
   return { ctx, page };
 }
 

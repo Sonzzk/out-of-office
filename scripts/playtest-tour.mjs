@@ -55,9 +55,9 @@ const load = async (c, saveFile, query = "fast") => {
   // Seed storage before any game code runs, so the page cannot save over it.
   await c.page.addInitScript((r) => { if (!sessionStorage.seeded) { sessionStorage.seeded = "1"; localStorage.setItem("out-of-office.save", r); } }, raw);
   await c.page.goto(`${BASE}?${query}`);
-  await c.page.waitForSelector("[data-clockin], #desk .win", { timeout: 90000 });
+  await c.page.waitForSelector("[data-clockin], #desk .ic", { timeout: 90000 });
   if (await c.page.locator("[data-clockin]").count()) await c.page.click("[data-clockin]");
-  await c.page.waitForSelector("#desk .win");
+  await c.page.waitForSelector("#desk .ic");
 };
 
 // ---------- Clip 1: a fresh first session at real speed (no ?fast)
@@ -67,13 +67,13 @@ const load = async (c, saveFile, query = "fast") => {
   await page.goto(`${BASE}?seed=11`);
   await page.waitForTimeout(1200);
   await mark(c, "01-boot", "First screen");
-  await page.waitForSelector("#ob-name, #desk .win", { timeout: 60000 });
+  await page.waitForSelector("#ob-name, #desk .ic", { timeout: 60000 });
   await mark(c, "02-onboarding", "Onboarding form");
   if (await page.locator("#ob-name").count()) {
     await page.fill("#ob-name", "Amos");
     await page.click("[data-sign]");
   }
-  await page.waitForSelector("#desk .win", { timeout: 60000 });
+  await page.waitForSelector("#desk .ic", { timeout: 60000 });
   await page.waitForTimeout(1500);
   await mark(c, "03-desktop", "First desktop with orientation card");
   await page.click('[data-open="hr"]');
@@ -188,9 +188,9 @@ await (async () => {
   const raw = readFileSync("shots/save-d12.json", "utf8");
   await page.addInitScript((r) => { if (!sessionStorage.seeded) { sessionStorage.seeded = "1"; localStorage.setItem("out-of-office.save", r); } }, raw);
   await page.goto(`${BASE}?fast`);
-  await page.waitForSelector("[data-clockin], #desk .win");
+  await page.waitForSelector("[data-clockin], #desk .ic");
   if (await page.locator("[data-clockin]").count()) await page.click("[data-clockin]");
-  await page.waitForSelector("#desk .win");
+  await page.waitForSelector("#desk .ic");
   await page.screenshot({ path: `${OUT}/50-phone-desktop.png` });
   // The game restores open windows, which pile over the icons on a phone.
   for (let i = 0; i < 6 && (await page.locator('.win [data-act="close"]').count()); i++) await page.locator('.win [data-act="close"]').last().click();

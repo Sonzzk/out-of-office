@@ -1,3 +1,4 @@
+import { tutorialActive } from "../sim/tutorial";
 import type { GameState } from "../sim/state";
 import { game, onChange } from "../store";
 import { apps } from "./apps";
@@ -171,9 +172,11 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
     }
   });
 
-  // First shift: the welcome memo and the map are already open.
-  openApp(list[0]);
-  openApp(list[1]);
+  // A new hire gets a clean desktop and one pulsing icon. Everyone else gets the inbox and the map back.
+  if (!tutorialActive(state) && desk.clientWidth > 640) {
+    openApp(list[0]);
+    openApp(list[1]);
+  }
 
   // Facilities follows up about the hum, whether you reported it or not.
   setTimeout(

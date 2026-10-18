@@ -13,12 +13,12 @@ const page = await browser.newPage({ viewport: { width: 1366, height: 860 } });
 page.on("pageerror", (e) => errors.push(e.message));
 // ?fast ticks every 40ms, too quick to read a call, so slow it down a little.
 await page.goto(`http://localhost:5199/?seed=${process.env.SEED ?? "21"}&fast`);
-await page.waitForSelector(".win, #ob-name, [data-clockin]");
+await page.waitForSelector(".ic, #ob-name, [data-clockin]");
 if (await page.locator("#ob-name").count()) {
   await page.fill("#ob-name", "Amos");
   await page.click("[data-sign]");
 }
-await page.waitForSelector("#desk .win");
+await page.waitForSelector("#desk .ic");
 await page.evaluate(() => {
   const s = JSON.parse(localStorage.getItem("out-of-office.save"));
   s.cash = 5000; // enough to hire four
@@ -26,7 +26,7 @@ await page.evaluate(() => {
   localStorage.setItem("out-of-office.save", JSON.stringify(s));
 });
 await page.goto(`http://localhost:5199/?fast`);
-await page.waitForSelector("#desk .win, [data-clockin]");
+await page.waitForSelector("#desk .ic, [data-clockin]");
 if (await page.locator("[data-clockin]").count()) await page.click("[data-clockin]");
 
 await page.click('[data-open="hr"]');

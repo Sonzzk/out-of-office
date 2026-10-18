@@ -129,17 +129,20 @@ export function openApp(app: AppDef, at?: { x: number; y: number }): HTMLElement
     return existing.el;
   }
 
+  // On a phone there is room for one window at a time.
+  const narrow = desk.clientWidth <= 640 && !app.id.startsWith("dlg-");
+  if (narrow) for (const id of [...open.keys()]) if (!id.startsWith("dlg-")) close(id);
   const el = document.createElement("div");
   el.className = "win";
   el.dataset.app = app.id;
   const w = Math.min(app.w, desk.clientWidth - 8);
-  const h = Math.min(app.h, desk.clientHeight - 8);
+  const h = narrow ? desk.clientHeight - 8 : Math.min(app.h, desk.clientHeight - 8);
   // Cascade new windows so they don't stack exactly on top of each other.
-  const offset = (open.size % 6) * 26;
+  const offset = narrow ? 0 : (open.size % 6) * 26;
   el.style.width = `${w}px`;
   el.style.height = `${h}px`;
   el.style.left = `${at?.x ?? (desk.clientWidth - w) / 2 + offset}px`;
-  el.style.top = `${at?.y ?? 40 + offset}px`;
+  el.style.top = `${at?.y ?? (narrow ? 4 : 40 + offset)}px`;
   el.innerHTML = `
     <div class="tb"><span></span>
       <button data-act="min" aria-label="Minimize">_</button>

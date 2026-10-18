@@ -13,12 +13,12 @@ const ctx = await browser.newContext({ viewport: { width: 1366, height: 900 }, a
 const page = await ctx.newPage();
 page.on("pageerror", (e) => errors.push(e.message));
 await page.goto(`http://localhost:5210/?seed=61&fast`);
-await page.waitForSelector("#ob-name, #desk .win");
+await page.waitForSelector("#ob-name, #desk .ic");
 if (await page.locator("#ob-name").count()) {
   await page.fill("#ob-name", "Amos");
   await page.click("[data-sign]");
 }
-await page.waitForSelector("#desk .win");
+await page.waitForSelector("#desk .ic");
 await page.click('[data-open="handbook"]');
 const hb = page.locator('.win[data-app="handbook"]');
 
@@ -33,9 +33,9 @@ await page.evaluate(() => {
   localStorage.setItem("out-of-office.save", JSON.stringify(s));
 });
 await page.goto(`http://localhost:5210/?fast`);
-await page.waitForSelector("[data-clockin], #desk .win");
+await page.waitForSelector("[data-clockin], #desk .ic");
 if (await page.locator("[data-clockin]").count()) await page.click("[data-clockin]");
-await page.waitForSelector("#desk .win");
+await page.waitForSelector("#desk .ic");
 await page.click('[data-open="handbook"]');
 const [dl] = await Promise.all([page.waitForEvent("download"), hb.locator("[data-export]").click()]);
 const path = await dl.path();
@@ -47,18 +47,18 @@ await page.locator(".dlg-btns").getByRole("button", { name: "Start over" }).clic
 await page.waitForSelector("#ob-name, [data-clockin]");
 console.log("save after reset:", await page.evaluate(() => localStorage.getItem("out-of-office.save")));
 
-await page.waitForSelector("#ob-name, #desk .win");
+await page.waitForSelector("#ob-name, #desk .ic");
 if (await page.locator("#ob-name").count()) {
   await page.fill("#ob-name", "Amos");
   await page.click("[data-sign]");
 }
-await page.waitForSelector("#desk .win");
+await page.waitForSelector("#desk .ic");
 await page.click('[data-open="handbook"]');
 await hb.locator("[data-file]").setInputFiles(path);
 await page.locator(".dlg-btns").getByRole("button", { name: "Replace" }).click();
-await page.waitForSelector("[data-clockin], #desk .win");
+await page.waitForSelector("[data-clockin], #desk .ic");
 if (await page.locator("[data-clockin]").count()) await page.click("[data-clockin]");
-await page.waitForSelector("#desk .win");
+await page.waitForSelector("#desk .ic");
 const cash = await page.evaluate(() => JSON.parse(localStorage.getItem("out-of-office.save")).cash);
 console.log("cash after import:", cash);
 
