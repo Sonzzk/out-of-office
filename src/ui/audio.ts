@@ -7,14 +7,45 @@ let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let hum: GainNode | null = null;
 let muted = false;
+let calm = false;
+let audioUnease = 0.15;
+let muzak: { gain: GainNode; filter: BiquadFilterNode; vibrato: GainNode } | null = null;
 
 const MUTE_KEY = "out-of-office.muted";
+const CALM_KEY = "out-of-office.calm";
+const MUZAK_LEVEL = 0.03;
 const HUM_LEVEL = 0.05;
 
 try {
   muted = localStorage.getItem(MUTE_KEY) === "1";
+  calm = localStorage.getItem(CALM_KEY) === "1";
 } catch {
   // Storage can be blocked; default to sound on.
+}
+
+/** Calm mode: the sound (and the desktop effects) stay at their gentlest. */
+export function isCalm(): boolean {
+  return calm;
+}
+
+export function setCalm(on: boolean): void {
+  calm = on;
+  try {
+    localStorage.setItem(CALM_KEY, on ? "1" : "0");
+  } catch {
+    // ignore
+  }
+}
+
+/** How wrong the muzak is allowed to sound, 0..1. Calm mode caps it low. */
+const effectiveUnease = () => (calm ? Math.min(audioUnease, 0.1) : audioUnease);
+
+export function setAudioUnease(v: number): void {
+  audioUnease = Math.max(0, Math.min(1, v));
+  if (!ctx || !muzak) return;
+  const u = effectiveUnease();
+  muzak.filter.frequency.setTargetAtTime(2400 - u * 1900, ctx.currentTime, 1.5);
+  muzak.vibrato.gain.setTargetAtTime(u * 40, ctx.currentTime, 1.5);
 }
 
 export function isMuted(): boolean {
@@ -81,6 +112,101 @@ export function startAudio(): void {
   ng.gain.value = 0.5;
   noise.connect(lp).connect(ng).connect(hum);
   noise.start();
+
+  startMuzak();
+}
+
+// Lobby muzak: a lazy four-chord loop on soft triangles. As the infection
+// grows it slows, goes sour (detuned, the odd wrong note), dulls and drops out.
+const CHORDS = [
+  [48, 55, 59, 64], // Cmaj7
+  [45, 52, 55, 60], // Am7
+  [50, 57, 60, 65], // Dm7
+  [43, 50, 53, 59], // G7
+];
+const midi = (n: number) => 440 * 2 ** ((n - 69) / 12);
+
+function startMuzak(): void {
+  if (!ctx || !master) return;
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 2400;
+  const gain = ctx.createGain();
+  gain.gain.value = 0;
+  gain.gain.setTargetAtTime(MUZAK_LEVEL, ctx.currentTime, 4);
+  filter.connect(gain).connect(master);
+  const lfo = ctx.createOscillator();
+  lfo.frequency.value = 5.2;
+  const vibrato = ctx.createGain();
+  vibrato.gain.value = 0;
+  lfo.connect(vibrato);
+  lfo.start();
+  muzak = { gain, filter, vibrato };
+  setAudioUnease(audioUnease);
+
+  let bar = 0;
+  let nextAt = ctx.currentTime + 1;
+  const schedule = () => {
+    if (!ctx || !muzak) return;
+    while (nextAt < ctx.currentTime + 4) {
+      const u = effectiveUnease();
+      const len = 2.4 + u * 3.2; // the tune drags
+      const chord = CHORDS[bar % CHORDS.length];
+      if (Math.random() > u * 0.35) {
+        chord.forEach((n, i) => {
+          const wrong = Math.random() < u * 0.35 ? (Math.random() < 0.5 ? 1 : -1) : 0;
+          const o = ctx!.createOscillator();
+          o.type = "triangle";
+          o.frequency.value = midi(n + wrong + (i === 3 ? 12 : 0));
+          o.detune.value = (Math.random() - 0.5) * u * 120;
+          vibrato.connect(o.detune);
+          const g = ctx!.createGain();
+          const at = nextAt + i * 0.18 * (1 + u);
+          g.gain.setValueAtTime(0, at);
+          g.gain.linearRampToValueAtTime(0.22, at + 0.08);
+          g.gain.exponentialRampToValueAtTime(0.0001, at + len * 0.95);
+          o.connect(g).connect(filter);
+          o.start(at);
+          o.stop(at + len);
+        });
+      }
+      nextAt += len;
+      bar++;
+    }
+  };
+  schedule();
+  window.setInterval(schedule, 1000);
+}
+
+/** The radio: a looping hiss while the crew waits for your call. */
+let staticSrc: { stop: () => void } | null = null;
+export function radioStatic(on: boolean): void {
+  if (!ctx || !master) return;
+  if (!on) {
+    staticSrc?.stop();
+    staticSrc = null;
+    return;
+  }
+  if (staticSrc) return;
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuffer(ctx, 2);
+  src.loop = true;
+  const bp = ctx.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = 2100;
+  bp.Q.value = 0.8;
+  const g = ctx.createGain();
+  g.gain.value = 0;
+  g.gain.setTargetAtTime(0.035, ctx.currentTime, 0.1);
+  src.connect(bp).connect(g).connect(master);
+  src.start();
+  const c = ctx;
+  staticSrc = {
+    stop: () => {
+      g.gain.setTargetAtTime(0, c.currentTime, 0.08);
+      src.stop(c.currentTime + 0.5);
+    },
+  };
 }
 
 /** The tubes stutter: the hum drops out and comes back with a tick. */
@@ -94,7 +220,7 @@ export function humFlicker(ms: number): void {
   sfx("tick");
 }
 
-type Sfx = "click" | "open" | "close" | "ding" | "tick" | "type" | "memo";
+type Sfx = "click" | "open" | "close" | "ding" | "tick" | "type" | "memo" | "key" | "return" | "squelch";
 
 export function sfx(kind: Sfx): void {
   if (!ctx || !master) return;
@@ -106,6 +232,18 @@ export function sfx(kind: Sfx): void {
       break;
     case "tick":
       burst(t, 0.012, 4200, 0.35);
+      break;
+    case "key": // a typewriter key: clack, with a little pitch variety
+      burst(t, 0.02, 1500 + Math.random() * 1400, 0.22);
+      burst(t + 0.004, 0.008, 5200, 0.12);
+      break;
+    case "return": // carriage return: thunk and bell
+      burst(t, 0.06, 700, 0.35);
+      tone(t + 0.05, 1760, 0.18, 0.015);
+      break;
+    case "squelch": // a radio line arrives
+      burst(t, 0.09, 1900, 0.3);
+      burst(t + 0.14, 0.03, 2600, 0.15);
       break;
     case "open":
       tone(t, 520, 0.05, 0.05);

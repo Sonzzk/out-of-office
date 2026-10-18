@@ -1,12 +1,25 @@
 // The things that make the desktop feel wrong. All of them scale with
 // `unease` (0..1): calm at the start, louder as the office infection grows.
 // Stage 6 ramps infection; for now it is the save's infection plus a floor.
-import { humFlicker, sfx } from "./audio";
+import { humFlicker, isCalm, setAudioUnease, sfx } from "./audio";
 
+let raw = 0.15;
 let unease = 0.15;
 
+// Calm mode holds the desktop effects near their gentlest.
+function apply(): void {
+  unease = isCalm() ? Math.min(raw, 0.12) : raw;
+}
+
 export function setUnease(v: number): void {
-  unease = Math.max(0, Math.min(1, v));
+  raw = Math.max(0, Math.min(1, v));
+  apply();
+  setAudioUnease(raw);
+}
+
+export function refreshCalm(): void {
+  apply();
+  setAudioUnease(raw);
 }
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
