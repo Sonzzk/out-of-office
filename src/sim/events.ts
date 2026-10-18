@@ -64,7 +64,10 @@ export function rollEvent(state: GameState): Memo | null {
   return memo;
 }
 
-export const choiceLabel = (m: Memo, i: number) => fill(EVENTS[m.event!.id].choices[i], m.event!.vars);
+export const choiceLabel = (m: Memo, i: number) => {
+  const vars = m.event!.vars;
+  return fill(EVENTS[m.event!.id].choices[i], m.event!.id === "lawsuit" ? { ...vars, double: money(Number(vars.raw) * 2) } : vars);
+};
 
 export function canChoose(state: GameState, m: Memo, i: number): boolean {
   const e = m.event;

@@ -38,6 +38,7 @@ const inbox = page.locator('.win[data-app="inbox"]');
 const seen = [];
 for (let d = 0; d < 12 && seen.length < 3; d++) {
   await ledger.locator("[data-endday]").click();
+  if (await page.locator(".dialog .btn", { hasText: "Close anyway" }).count()) await page.locator(".dialog .btn", { hasText: "Close anyway" }).click(); // pre-close checklist
   await page.waitForTimeout(150);
   if (await page.locator("[data-clockin]").count()) await page.click("[data-clockin]");
   await page.click('[data-open="inbox"]');

@@ -34,7 +34,7 @@ export function rollContracts(state: GameState): void {
   addMemo(state, {
     from: "The Board",
     subject: `Contract offer: ${contractText(c)}`,
-    body: `A client wants ${contractText(c)}. Deliver them from the Ledger by Day ${c.deadline} and we will pay $${reward}, which is more than they are worth.\n\nIt is optional. We are only telling you because we can see you have nothing else planned.\n\n- The Board`,
+    body: `A client wants ${contractText(c)}. Deliver them from the Ledger by Day ${c.deadline} and we will pay $${reward}. Sold one by one, at the usual price, they would bring about $${ITEMS[itemId].value * need}. You can decline it in the Ledger.\n\nIt is optional. We are only telling you because we can see you have nothing else planned.\n\n- The Board`,
   });
 }
 
@@ -45,6 +45,14 @@ export function deliver(state: GameState, id: number): boolean {
   state.loot = state.loot.filter((l) => (l.itemId === c.itemId && n > 0 ? (n--, false) : true));
   state.cash += c.reward;
   state.ledger.unshift({ day: state.day, text: `Contract delivered: ${contractText(c)}`, amount: c.reward });
+  state.contracts = state.contracts!.filter((x) => x !== c);
+  return true;
+}
+
+// Turning an offer down just frees the slot. Items already on hand are yours to sell again.
+export function declineContract(state: GameState, id: number): boolean {
+  const c = state.contracts?.find((x) => x.id === id);
+  if (!c) return false;
   state.contracts = state.contracts!.filter((x) => x !== c);
   return true;
 }

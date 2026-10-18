@@ -88,6 +88,16 @@ export function startResearch(state: GameState, lootId: number): boolean {
   return true;
 }
 
+// The stage an entry reaches once `count` samples have been studied.
+export const stageForSamples = (count: number): Stage => (count >= SAMPLES_TO_MASTER ? 3 : count >= SAMPLES_TO_DOCUMENT ? 2 : 1);
+
+// What the lab will report tonight for an entry. `ahead` counts samples of the
+// same kind on earlier benches. Uses the same rule as finishResearch.
+export function researchPreview(state: GameState, entity: string, ahead = 0): Stage {
+  const count = (state.index[entity]?.count ?? 0) + ahead + 1;
+  return Math.max(stageOf(state, entity), Math.min(stageForSamples(count), indexEntry(entity).maxStage)) as Stage;
+}
+
 // Runs at the end of the day.
 export function finishResearch(state: GameState): string[] {
   const notes = state.research.map(({ itemId }) => {
@@ -95,7 +105,7 @@ export function finishResearch(state: GameState): string[] {
     addInfection(state, 2); // whatever was in the jar is in the building now
     const k = known(state, entity);
     k.count++;
-    const stage: Stage = k.count >= SAMPLES_TO_MASTER ? 3 : k.count >= SAMPLES_TO_DOCUMENT ? 2 : 1;
+    const stage = stageForSamples(k.count);
     return learn(state, entity, stage) ?? `The lab finished with the ${indexEntry(entity).name} sample. Nothing new.`;
   });
   state.research = [];

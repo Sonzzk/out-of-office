@@ -1,4 +1,4 @@
-import { CLONE_PORTRAITS, LEVEL_XP, PEOPLE, QUIRKS, SKILLS, type Skill, type Source } from "../data/crew";
+import { CLONE_PORTRAITS, LEVEL_XP, PEOPLE, QUIRKS, SKILL_LABEL, SKILLS, type Skill, type Source } from "../data/crew";
 import { Dice } from "./rng";
 import type { GameState } from "./state";
 import { BARGAIN, twistIs } from "./twists";
@@ -119,7 +119,7 @@ export function revealQuirk(w: Worker, id: string): boolean {
   return true;
 }
 
-// Training: pay for a course and the next level arrives overnight, once a day.
+// Training: pay for a course and the next level arrives at once, once a day. It also raises the nightly wage.
 export const trainCost = (w: Worker) => 250 * w.level;
 export const canTrain = (state: GameState, w: Worker) =>
   w.status === "idle" && w.level < LEVEL_XP.length && w.trainedDay !== state.day && state.cash >= trainCost(w);
@@ -131,6 +131,9 @@ export function train(state: GameState, workerId: number): boolean {
   state.cash -= cost;
   w.trainedDay = state.day;
   state.ledger.unshift({ day: state.day, text: `Training course: ${w.name}`, amount: -cost });
+  const before = { ...w.skills };
   gainXp(w, Math.max(1, LEVEL_XP[w.level] - w.xp), new Dice((state.seed ^ Math.imul(w.id + state.day, 40503)) >>> 0));
+  const gained = SKILLS.find((s) => w.skills[s] > before[s]);
+  state.ledger[0].text = `Training course: ${w.name}, level ${w.level}${gained ? `, +1 ${SKILL_LABEL[gained]}` : ""}`;
   return true;
 }
