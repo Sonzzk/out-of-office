@@ -33,7 +33,10 @@ await page.waitForSelector("#desk .ic");
 
 await page.click('[data-open="facilities"]');
 const fac = page.locator('.win[data-app="facilities"]');
-for (const id of ["dispatch", "lab", "mast", "breakroom"]) await fac.locator(`[data-buy="${id}"]`).click();
+for (const id of ["dispatch", "lab", "mast", "breakroom"]) {
+  await fac.locator(`[data-buy="${id}"]`).click();
+  await page.locator(".dialog .btn", { hasText: "Buy" }).click();
+}
 await page.screenshot({ path: "shots/facilities-1-bought.png" });
 console.log("upkeep:", (await fac.locator("p").last().textContent()).trim());
 

@@ -81,6 +81,7 @@ const ledger = page.locator('.win[data-app="ledger"]');
 console.log("heat:", (await ledger.locator(".heat").textContent()).trim().replace(/\s+/g, " "));
 await page.screenshot({ path: "shots/two-4-ledger.png" });
 await ledger.locator("[data-endday]").click();
+if (await page.locator(".dialog .btn", { hasText: "Close anyway" }).count()) await page.locator(".dialog .btn", { hasText: "Close anyway" }).click(); // pre-close checklist
 await page.click('[data-open="inbox"]');
 await page.screenshot({ path: "shots/two-5-inbox.png" });
 console.log("memos:", (await page.locator('.win[data-app="inbox"]').textContent()).replace(/\s+/g, " ").slice(0, 300));

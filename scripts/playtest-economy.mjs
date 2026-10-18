@@ -40,7 +40,10 @@ await page.click('[data-open="ledger"]');
 const led = page.locator('.win[data-app="ledger"]');
 const before = await page.evaluate(() => JSON.parse(localStorage.getItem("out-of-office.save")).cash);
 if (!(await led.locator("[data-sellall]").count())) fail("no Sell all button");
-else await led.locator("[data-sellall]").click();
+else {
+  await led.locator("[data-sellall]").click();
+  await led.locator("[data-sellgo]").click();
+}
 const after = await page.evaluate(() => JSON.parse(localStorage.getItem("out-of-office.save")).cash);
 const bonus = await led.locator("tr", { hasText: "first-sale bonus" }).count();
 console.log("cash", before, "->", after, "bonus rows:", bonus);
@@ -66,7 +69,10 @@ else await hr.locator("[data-train]:not([disabled])").first().click();
 if (!(await page.locator("[data-floor]").isHidden())) fail("FL 2 shown before the second floor is built");
 await page.click('[data-open="facilities"]');
 const fac = page.locator('.win[data-app="facilities"]');
-for (const id of ["memorial", "cage", "corner", "floor2"]) await fac.locator(`[data-project="${id}"]`).click();
+for (const id of ["memorial", "cage", "corner", "floor2"]) {
+  await fac.locator(`[data-project="${id}"]`).click();
+  await page.locator(".dialog .btn", { hasText: "Build" }).click();
+}
 await fac.locator("[data-recover]").first().click();
 await page.waitForTimeout(1300);
 const cls = await page.locator("#desk").getAttribute("class");

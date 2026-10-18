@@ -46,6 +46,7 @@ const cash = await page.evaluate(() => JSON.parse(localStorage.getItem("out-of-o
 if (cash < 700) fail("no contract payout, cash " + cash);
 
 await led.locator("[data-sellall]").click();
+await led.locator("[data-sellgo]").click();
 await led.locator(".buyer").waitFor();
 const call = await led.locator(".buyer").innerText();
 if (!call.includes("Buyer:") || !call.includes("PAID")) fail("no buyer call: " + call);

@@ -1,17 +1,27 @@
-import { LEVEL_XP, SKILL_LABEL, SKILLS, SOURCE_INFO } from "../data/crew";
+import { LEVEL_XP, SKILL_LABEL, SKILLS, SOURCE_INFO, type Skill } from "../data/crew";
 import { ODD_MOODS } from "../data/infection";
 import { canTrain, hire, isVeteran, quirkDef, skill, train, trainCost, type Worker } from "../sim/crew";
 import { infectionStage } from "../sim/infection";
-import { assign, contractPay, OVERTIME_PAY } from "../sim/office";
+import { trainWageRise } from "../sim/economy";
+import { assign, contractPay, OVERTIME_PAY, OVERTIME_INFECTION } from "../sim/office";
 import { game, update, watch } from "../store";
 import { shownName } from "../privacy";
 import { art, esc, money } from "./dom";
+import { notify } from "./uncanny";
 
+const SKILL_TIP: Record<Skill, string> = {
+  nav: "finds the way and finds loot faster",
+  stealth: "gets noticed less by what lives down there",
+  medical: "keeps the crew alive when something goes wrong",
+  morale: "keeps a crew steady when things get strange",
+};
+
+// Pips out of six, with the number and a tooltip. Quirks may already be counted in.
 function skillBars(w: Worker): string {
-  return SKILLS.map(
-    (s) =>
-      `<div class="sk"><span>${SKILL_LABEL[s]}</span><i class="pips">${"■".repeat(skill(w, s))}<b>${"■".repeat(6 - skill(w, s))}</b></i></div>`,
-  ).join("");
+  return SKILLS.map((s) => {
+    const n = skill(w, s);
+    return `<div class="sk" title="${SKILL_LABEL[s]} ${n} of 6: ${SKILL_TIP[s]}."><span>${SKILL_LABEL[s]}</span><i class="pips">${"■".repeat(n)}<b>${"■".repeat(6 - n)}</b></i><em class="dim">${n}</em></div>`;
+  }).join("");
 }
 
 function quirkLines(w: Worker): string {
@@ -46,13 +56,27 @@ function statusText(w: Worker): string {
   return w.runs ? `${w.runs} run${w.runs > 1 ? "s" : ""} survived` : "Fresh";
 }
 
+// The applicant list can be folded away so the crew stays in view. Unset means: fold it once there is a crew.
+let applicantsOpen: boolean | undefined;
+
 export function renderHR(body: HTMLElement): void {
   body.classList.add("hr");
   body.addEventListener("click", (e) => {
     const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-hire]");
     if (btn) update((s) => void hire(s, Number(btn.dataset.hire)));
+    const fold = (e.target as HTMLElement).closest("[data-fold]");
+    if (fold) {
+      const s = game();
+      applicantsOpen = !(applicantsOpen ?? s.crew.filter((w) => w.status !== "dead").length < 2);
+      update(() => {});
+    }
     const course = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-train]");
-    if (course) update((s) => void train(s, Number(course.dataset.train)));
+    if (course)
+      update((s) => {
+        if (!train(s, Number(course.dataset.train))) return;
+        const desk = document.getElementById("desk");
+        if (desk) notify(desk, "./art/icons/U-document.png", "Training", s.ledger[0].text.replace("Training course: ", ""), 5000);
+      });
     const job = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-job]");
     if (job) update((s) => void assign(s, Number(job.dataset.worker), job.dataset.job as "contract" | "overtime"));
   });
@@ -60,9 +84,12 @@ export function renderHR(body: HTMLElement): void {
     const s = game();
     const crew = s.crew.filter((w) => w.status !== "dead");
     const dead = s.crew.filter((w) => w.status === "dead");
+    const open = applicantsOpen ?? crew.length < 2;
     body.innerHTML = `
-      <h3>Today's applicants <span class="dim">Day ${s.day}</span></h3>
-      <div class="cards">
+      <h3>Today's applicants <span class="dim">Day ${s.day}</span>
+        <button class="btn fold" data-fold aria-expanded="${open}">${open ? "Hide" : `Show ${s.pool.length}`}</button></h3>
+      ${open ? "" : `<p class="dim">${s.pool.length ? `${s.pool.length} waiting, from ${money(Math.min(...s.pool.map((w) => w.cost)))}.` : "None today."}</p>`}
+      <div class="cards" ${open ? "" : "hidden"}>
         ${
           s.pool
             .map(
@@ -77,6 +104,7 @@ export function renderHR(body: HTMLElement): void {
               <button class="btn go" data-hire="${w.id}" ${s.cash < w.cost ? "disabled" : ""}>
                 ${w.source === "prisoner" ? "Bribe the warden" : "Hire"} · ${money(w.cost)}
               </button>
+              <div class="dim">Wage ${money(SOURCE_INFO[w.source].wage)}/night once hired.</div>
             </div>
           </div>`,
             )
@@ -84,6 +112,7 @@ export function renderHR(body: HTMLElement): void {
         }
       </div>
       <h3>Your crew</h3>
+      ${crew.some((w) => w.status === "idle") ? `<p class="dim">Idle crew can take a safe contract (small pay, no risk) or unpaid overtime ($${OVERTIME_PAY}, but the building takes ${OVERTIME_INFECTION}% infection and the room may talk back). Both pay when the books close.</p>` : ""}
       ${
         crew.length
           ? `<div class="roster">${crew
@@ -98,7 +127,7 @@ export function renderHR(body: HTMLElement): void {
                   ${quirkLines(w)}${oddMood(w, infectionStage(s))}
                   ${
                     w.status === "idle"
-                      ? `<div class="jobs">${w.level < LEVEL_XP.length ? `<button class="btn" data-train="${w.id}" ${canTrain(s, w) ? "" : "disabled"} title="A course at a hotel with a very long carpet. Next level, tonight.">${w.trainedDay === s.day ? "Trained today" : `Training course ${money(trainCost(w))}`}</button>` : ""}<button class="btn" data-job="contract" data-worker="${w.id}" title="Safe work on the lit edge. Back tonight.">Safe contract +${money(contractPay(w))} (out today)</button>
+                      ? `<div class="jobs">${w.level < LEVEL_XP.length ? `<button class="btn" data-train="${w.id}" ${canTrain(s, w) ? "" : "disabled"} title="A course at a hotel with a very long carpet. They reach the next level right away and gain one random stat point. Their wage rises by ${money(trainWageRise(w))} a night.">${w.trainedDay === s.day ? "Trained today" : `Training course ${money(trainCost(w))}, +${money(trainWageRise(w))}/night`}</button>` : ""}<button class="btn" data-job="contract" data-worker="${w.id}" title="Safe work on the lit edge. Back tonight.">Safe contract +${money(contractPay(w))} (out today)</button>
                         <button class="btn" data-job="overtime" data-worker="${w.id}" title="Pays well. Nobody likes the Overtime Room.">Unpaid overtime +${money(OVERTIME_PAY)} (out today)</button></div>`
                       : ""
                   }

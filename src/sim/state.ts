@@ -69,6 +69,7 @@ export interface GameState {
   twist?: { id: string; day: number }; // today's twist, see sim/twists.ts
   twistLast?: string; // the last twist that ran, so it does not repeat
   contracts?: import("./contracts").Contract[]; // open Board contracts
+  targetNoted?: number; // fiscal year whose target was already reached early (memo sent)
   recentLines?: string[]; // radio lines heard lately, so the crews do not repeat them
   act?: number; // story act: 1 The Job, 2 The Cost, 3 The Exit, 4 new quarter (see sim/story.ts)
   ending?: string; // set while an ending is on screen; cleared when the new quarter starts

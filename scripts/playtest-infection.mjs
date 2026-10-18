@@ -39,6 +39,7 @@ await page.waitForSelector("#desk .ic");
 
 await page.click('[data-open="ledger"]');
 await page.locator('.win[data-app="ledger"] [data-endday]').click();
+if (await page.locator(".dialog .btn", { hasText: "Close anyway" }).count()) await page.locator(".dialog .btn", { hasText: "Close anyway" }).click(); // pre-close checklist
 await page.click('[data-open="inbox"]');
 const inbox = page.locator('.win[data-app="inbox"]');
 console.log("inbox:", (await inbox.locator(".list").textContent()).replace(/\s+/g, " ").slice(0, 240));
