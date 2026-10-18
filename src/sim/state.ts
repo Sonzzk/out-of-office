@@ -3,6 +3,7 @@ import { WELCOME } from "../data/memos";
 import type { Worker } from "./crew";
 import { generatePool } from "./crew";
 import type { Expedition } from "./expedition";
+import type { IndexState } from "./research";
 import { makeRng, pick } from "./rng";
 
 export interface LootItem {
@@ -48,9 +49,46 @@ export interface GameState {
   level0Seed: number;
   fog: number[]; // 1 = revealed cell on Level 0
   takenToday: number[]; // indices of Level 0 loot already picked up today
+  index: Record<string, IndexState>;
+  research?: { itemId: string; startedDay: number }; // the lab's one bench
+  target: { year: number; amount: number; deadline: number }; // the board's money target
+  heatWarned: boolean; // Legal has already sent the warning memo
 }
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 5;
+export const FIRST_TARGET = { year: 1, amount: 2500, deadline: 5 };
+
+// Bring older saves up to date instead of throwing them away.
+export function migrate(save: any): GameState | null {
+  if (save?.version === 2) {
+    for (const w of [...save.crew, ...save.pool]) {
+      w.quirks = [w.quirk];
+      w.revealed = [w.quirk];
+      delete w.quirk;
+      w.xp = w.runs ?? 0;
+      w.level = 1;
+    }
+    for (const e of save.expeditions) e.encounters ??= 0;
+    save.version = 3;
+  }
+  if (save?.version === 3) {
+    save.index = { "level-0": { stage: 1, count: 0, dataSold: 0 } };
+    save.target = { ...FIRST_TARGET, deadline: Math.max(FIRST_TARGET.deadline, save.day + 4) };
+    for (const e of save.expeditions) {
+      e.entities = [{ id: "smiler", pos: e.entity, cooldown: e.entityCooldown, seen: e.entitySeen }];
+      delete e.entity;
+      delete e.entityCooldown;
+      delete e.entitySeen;
+    }
+    save.version = 4;
+  }
+  if (save?.version === 4) {
+    save.heatWarned = false;
+    for (const e of save.expeditions) e.callsMade ??= 0;
+    save.version = 5;
+  }
+  return save?.version === SAVE_VERSION ? (save as GameState) : null;
+}
 
 export function companyName(seed: number): string {
   const rng = makeRng(seed);
@@ -97,6 +135,9 @@ export function newGame(seed: number, bossName = "Boss"): GameState {
     level0Seed: (seed * 7919 + 13) >>> 0,
     fog: [],
     takenToday: [],
+    index: { "level-0": { stage: 1, count: 0, dataSold: 0 } },
+    target: { ...FIRST_TARGET },
+    heatWarned: false,
   };
   state.pool = generatePool(state);
   addMemo(state, WELCOME);

@@ -26,7 +26,7 @@ await page.screenshot({ path: "shots/loop-1-boot.png" });
 await page.click('[data-open="hr"]');
 for (let i = 0; i < 2; i++) await page.locator("[data-hire]:not([disabled])").first().click();
 await page.screenshot({ path: "shots/loop-2-hired.png" });
-const crew = await page.locator(".hr .roster .row").count();
+const crew = await page.locator(".hr .roster .crewrow").count();
 console.log("crew hired:", crew);
 
 // Plan: pick everyone, drop a marker on the far right of the map, send.
@@ -53,6 +53,9 @@ const sellable = await ledger.locator("[data-sell]").count();
 for (let i = 0; i < sellable; i++) await ledger.locator("[data-sell]").first().click();
 console.log("cash:", before, "->", await ledger.locator(".cash b").textContent(), `(${sellable} sold)`);
 await page.screenshot({ path: "shots/loop-6-ledger.png" });
+await page.click('[data-open="hr"]');
+await page.locator('.win[data-app="hr"] .tb').click();
+await page.screenshot({ path: "shots/loop-8-crew.png" });
 await page.click('[data-open="inbox"]');
 await page.screenshot({ path: "shots/loop-7-inbox.png" });
 
@@ -61,7 +64,34 @@ await page.goto(`http://localhost:5198/?fast`);
 await page.waitForSelector("#desk .win, [data-clockin]");
 if (await page.locator("[data-clockin]").count()) await page.click("[data-clockin]");
 await page.click('[data-open="hr"]');
-console.log("crew after reload:", await page.locator(".hr .roster .row").count());
+console.log("crew after reload:", await page.locator(".hr .roster .crewrow").count());
+
+// Index and Lab, with a save that already knows a few things.
+await page.evaluate(() => {
+  const s = JSON.parse(localStorage.getItem("out-of-office.save"));
+  s.index.smiler = { stage: 3, by: s.crew[0]?.name, count: 2, dataSold: 0 };
+  s.index.hound = { stage: 2, by: s.crew[0]?.name, count: 0, dataSold: 0 };
+  s.index.faceling = { stage: 1, by: s.crew[0]?.name, count: 0, dataSold: 0 };
+  s.index["almond-water"] = { stage: 1, by: s.crew[0]?.name, count: 1, dataSold: 0 };
+  s.loot.push({ id: 9001, itemId: "sample-hound", foundBy: s.crew[0]?.name ?? "?" });
+  localStorage.setItem("out-of-office.save", JSON.stringify(s));
+});
+await page.goto(`http://localhost:5198/?fast`);
+await page.waitForSelector("#desk .win, [data-clockin]");
+if (await page.locator("[data-clockin]").count()) await page.click("[data-clockin]");
+await page.click('[data-open="index"]');
+const index = page.locator('.win[data-app="index"]');
+await index.locator('[data-entry="smiler"]').click();
+await page.screenshot({ path: "shots/loop-9-index.png" });
+await index.locator("[data-selldata]").click();
+await index.locator('[data-entry="faceling"]').click();
+await page.screenshot({ path: "shots/loop-10-index-seen.png" });
+await page.click('[data-open="lab"]');
+const lab = page.locator('.win[data-app="lab"]');
+await lab.locator("[data-research]").first().click();
+console.log("lab:", (await lab.locator(".bench").textContent()).trim().replace(/\s+/g, " "));
+await page.click('[data-open="ledger"]');
+await page.screenshot({ path: "shots/loop-11-lab-ledger.png" });
 
 await browser.close();
 await server.close();

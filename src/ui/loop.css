@@ -72,3 +72,70 @@
   .inbox { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   .inbox .list { max-height: 120px; }
 }
+
+/* Crew milestone */
+.roster { display: grid; gap: 6px; }
+.crewrow { display: flex; gap: 8px; padding: 6px; }
+.crewrow > img { width: 48px; height: 60px; object-fit: cover; flex: none; border: 2px solid var(--sh); }
+.crewrow .info { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.crewrow .top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.crewrow .nm { font-weight: bold; }
+.crewrow .st { margin-left: auto; }
+.lv { font-size: 10px; padding: 0 4px; border: 1px solid var(--sh); }
+.badge { font-size: 9px; font-weight: bold; letter-spacing: .08em; padding: 1px 4px; background: var(--title); color: #efe9b4; }
+.xp { display: inline-block; width: 60px; height: 7px; border: 1px solid var(--sh); background: var(--paper); }
+.xp i { display: block; height: 100%; background: var(--title); }
+.pick { justify-content: space-between; }
+.pick label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.pick .lead { font-size: 10px; gap: 2px; }
+
+/* Ledger target */
+.ledger .target { padding: 6px 8px; margin-top: 6px; display: grid; gap: 4px; }
+.ledger .target .bar { height: 10px; background: #000; border: 1px solid var(--sh); }
+.ledger .target .bar i { display: block; height: 100%; background: #b9a94f; }
+.ledger .target .bar i.met { background: #6fa04a; }
+
+/* Index */
+.index { display: flex; flex-direction: column; gap: 6px; height: 100%; box-sizing: border-box; }
+.index .tabs { display: flex; gap: 2px; align-items: end; }
+.index .tab { font: inherit; padding: 3px 10px; background: var(--face, #c0c0c0); border: 2px outset #fff; cursor: pointer; }
+.index .tab.on { border-style: inset; font-weight: bold; }
+.index .prog { margin-left: auto; }
+.index .split { display: grid; grid-template-columns: 180px 1fr; gap: 6px; flex: 1; min-height: 0; }
+.index .list { overflow: auto; display: grid; align-content: start; gap: 2px; padding: 3px; }
+.index .card { display: flex; gap: 6px; align-items: center; text-align: left; font: inherit; padding: 3px; background: transparent; border: 1px solid transparent; cursor: pointer; }
+.index .card.on { background: #000080; color: #fff; }
+.index .card.on .dim { color: #ccd; }
+.index .card img, .index .card .blank { width: 34px; height: 34px; object-fit: contain; flex: none; image-rendering: pixelated; }
+.index .card .blank { display: grid; place-items: center; background: #222; color: #666; font-weight: bold; }
+.index .st1 img { filter: brightness(0) drop-shadow(0 0 1px #b9a94f); }
+.index .page { overflow: auto; padding: 8px 10px; }
+.index .page h3 { margin: 4px 0; }
+.index .page p { margin: 6px 0; line-height: 1.35; }
+.index .hero { background: #0e1208; text-align: center; padding: 6px; }
+.index .hero img { max-height: 120px; max-width: 100%; image-rendering: pixelated; }
+.index .meta { display: flex; gap: 10px; font-size: 11px; }
+.index .meta .stage { margin-left: auto; font-weight: bold; }
+.index .lore { font-style: italic; border-left: 3px solid #7a1d12; padding-left: 6px; }
+
+/* Lab */
+.lab .bench { display: flex; gap: 10px; align-items: center; padding: 8px; }
+.lab .bench img { width: 48px; height: 48px; object-fit: contain; }
+
+/* Map: run tabs and radio calls */
+.runtabs { display: flex; flex-wrap: wrap; gap: 2px; }
+.runtabs .tab { font: inherit; font-size: 11px; padding: 2px 6px; background: var(--face, #c0c0c0); border: 2px outset #fff; cursor: pointer; }
+.runtabs .tab.on { border-style: inset; font-weight: bold; }
+.runtabs .ring { color: #b3261e; animation: ring 0.6s steps(2) infinite; }
+@keyframes ring { 50% { color: transparent; } }
+.call { padding: 6px; display: grid; gap: 5px; font-size: 11px; border-color: #b3261e; background: #fff6d8; }
+.call .opts { display: flex; gap: 4px; flex-wrap: wrap; }
+.call .timer { height: 6px; background: #000; }
+.call .timer i { display: block; height: 100%; background: #b3261e; transition: width 0.3s linear; }
+
+/* HR jobs, Ledger heat */
+.crewrow .jobs { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+.crewrow .jobs .btn { font-size: 11px; padding: 1px 6px; }
+.ledger .heat { padding: 6px 8px; margin-top: 6px; display: grid; gap: 4px; }
+.ledger .heat .bar { height: 10px; background: #000; border: 1px solid var(--sh); }
+.ledger .heat .bar i { display: block; height: 100%; background: #c4572a; }
