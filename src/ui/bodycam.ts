@@ -77,6 +77,14 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput): Bodyc
   let lastTickAt = performance.now();
   let angle = 0;
   let target = 0;
+  let heading = 0; // where the body is going; the head follows
+  let turning = false;
+  let headHold = 0;
+  let glance = 0;
+  let glanceUntil = 0;
+  let nextGlance = performance.now() + 2500;
+  let lastFrame = performance.now();
+  let holdUntil = 0;
   let stepPhase = 0;
   let lastStep = 0;
   let danger = 0;
@@ -126,11 +134,38 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput): Bodyc
     const px0 = p.x + 0.5;
     const py0 = p.y + 0.5;
     const moving = !done && now - moved < tickMs * 1.05 && (to.x !== from.x || to.y !== from.y);
-    // Turn toward where we are heading; while holding still, look around slowly.
-    const idleLook = moving || done ? 0 : Math.sin(now / 1100) * 0.3;
-    angle += rotate(target + idleLook - angle) * 0.18;
+    const dt = Math.min(0.05, (now - lastFrame) / 1000);
+    lastFrame = now;
+    const nervy = 1 + danger * 1.5 + input.infection / 60;
+
+    // A head, not a turret. It reacts a beat late, turns at a human speed,
+    // and every few seconds jerks to look at something that may not be there.
+    if (Math.abs(rotate(target - heading)) > 0.3 && now > headHold) {
+      if (!turning) {
+        turning = true;
+        headHold = now + 150 + Math.random() * 250; // the pause before the turn
+      } else {
+        turning = false;
+        heading = target;
+      }
+    }
+    if (Math.abs(rotate(target - heading)) <= 0.3) heading = target;
+    if (!done && now > nextGlance) {
+      const behind = Math.random() < 0.18;
+      glance = (Math.random() < 0.5 ? -1 : 1) * (behind ? 2.5 : 0.6 + Math.random() * 0.9);
+      glanceUntil = now + 450 + Math.random() * 700;
+      nextGlance = glanceUntil + (2200 + Math.random() * 4500) / nervy;
+    }
+    const looking = now < glanceUntil;
+    const drift = moving || done ? 0 : Math.sin(now / 1300) * 0.25;
+    const shake = Math.sin(now / 37) * 0.006 + Math.sin(now / 91) * 0.01;
+    const desired = (turning ? angle : heading) + (looking ? glance : 0) + drift;
+    const diff = rotate(desired - angle);
+    const maxRate = looking && Math.abs(diff) > 0.2 ? 4.2 : 1.35; // a flick out, a slow return
+    const stepA = Math.max(-maxRate * dt, Math.min(maxRate * dt, diff * (1 - Math.exp(-5 * dt))));
+    angle = rotate(angle + stepA);
     if (moving) stepPhase += 0.2;
-    const bob = moving ? Math.sin(stepPhase * 2.2) * 1.6 : Math.sin(now / 1400) * 0.4;
+    const bob = (moving ? Math.sin(stepPhase * 2.2) * 1.6 : Math.sin(now / 1400) * 0.4) + shake * 40;
     const horizon = H / 2 + bob;
     if (moving && Math.sin(stepPhase * 2.2) < -0.95 && now - lastStep > 180) {
       lastStep = now;
@@ -414,7 +449,9 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput): Bodyc
       return;
     }
     // Skip hidden tabs and collapsed windows; they cost battery for nothing.
-    if (!document.hidden && canvas.offsetParent) render(now);
+    // Now and then the tape hangs on a frame, like a worn VHS.
+    if (now > holdUntil && Math.random() < 0.004 + danger * 0.01 + input.infection / 20000) holdUntil = now + 90 + Math.random() * 160;
+    if (!document.hidden && canvas.offsetParent && now > holdUntil) render(now);
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
