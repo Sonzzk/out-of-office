@@ -1,6 +1,8 @@
+import { EVENTS } from "../data/events";
+import { answerEvent, canChoose, choiceLabel } from "../sim/events";
 import { infectionStage } from "../sim/infection";
 import { makeRng } from "../sim/rng";
-import { fill, type GameState } from "../sim/state";
+import { fill, type GameState, type Memo } from "../sim/state";
 import { game, update, watch } from "../store";
 import { esc } from "./dom";
 
@@ -8,6 +10,12 @@ export function renderInbox(body: HTMLElement): void {
   body.classList.add("inbox");
   let openId: number | null = null;
   body.addEventListener("click", (e) => {
+    const pick = (e.target as HTMLElement).closest<HTMLElement>("[data-choice]");
+    if (pick) {
+      const [id, c] = pick.dataset.choice!.split(":").map(Number);
+      update((s) => void answerEvent(s, id, c));
+      return;
+    }
     const row = (e.target as HTMLElement).closest<HTMLElement>("[data-memo]");
     if (!row) return;
     openId = Number(row.dataset.memo);
@@ -25,11 +33,11 @@ export function renderInbox(body: HTMLElement): void {
       <div class="list inset">${s.memos
         .map(
           (m) => `<div class="msg ${m.read ? "" : "unread"} ${m === current ? "on" : ""}" data-memo="${m.id}">
-            <span>${esc(fill(m.subject, vars))}</span><span class="dim">${esc(fill(m.from, vars))} · D${m.day}</span></div>`,
+            <span>${m.event && m.event.choice === undefined ? `<b class="ask">!</b> ` : ""}${esc(fill(m.subject, vars))}</span><span class="dim">${esc(fill(m.from, vars))} · D${m.day}</span></div>`,
         )
         .join("")}</div>
       <div class="memo inset">${
-        current ? `<b>FROM:</b> ${esc(fill(current.from, vars))}\n<b>TO:</b> ${esc(s.bossName)}\n<b>RE:</b> ${esc(fill(current.subject, vars))}\n\n${warp(s, current.id, esc(fill(current.body, vars)))}` : "No memos."
+        current ? `<b>FROM:</b> ${esc(fill(current.from, vars))}\n<b>TO:</b> ${esc(s.bossName)}\n<b>RE:</b> ${esc(fill(current.subject, vars))}\n\n${warp(s, current.id, esc(fill(current.body, vars)))}${current.event ? decision(s, current) : ""}` : "No memos."
       }</div>`;
   });
 }
@@ -42,4 +50,13 @@ function warp(s: GameState, id: number, html: string): string {
   const rng = makeRng(id * 7919 + stage);
   const rate = [0, 0, 0.03, 0.07, 0.14][stage];
   return html.replace(/\b[a-z]{5,}\b/g, (word) => (rng() < rate ? `<span class="warp">${esc(s.bossName)}</span>` : word));
+}
+
+// Event memos end with their choices, or with what happened once answered.
+function decision(s: GameState, m: Memo): string {
+  const e = m.event!;
+  if (e.choice !== undefined) return `<div class="decided">${esc(e.result ?? "")}</div>`;
+  return `<div class="choices">${EVENTS[e.id].choices
+    .map((_, i) => `<button class="btn" data-choice="${m.id}:${i}" ${canChoose(s, m, i) ? "" : "disabled"}>${esc(choiceLabel(m, i))}</button>`)
+    .join("")}</div><div class="dim">If you don't answer by the end of the day: ${esc(choiceLabel(m, EVENTS[e.id].fallback))}.</div>`;
 }

@@ -2,6 +2,7 @@ import { ITEMS } from "../data/items";
 import { SOURCE_INFO } from "../data/crew";
 import { EMPLOYEE_OF_THE_MONTH, PAYROLL, RESEARCH_DONE, TARGET_MET, TARGET_MISSED } from "../data/memos";
 import { generatePool, isVeteran, type Worker } from "./crew";
+import { rollEvent, resolvePending } from "./events";
 import { upkeep } from "./facilities";
 import { nightInfection } from "./infection";
 import { nightShift } from "./office";
@@ -30,6 +31,7 @@ export function canEndDay(state: GameState): boolean {
 // expeditions are cleared so the map starts clean.
 export function endDay(state: GameState): boolean {
   if (!canEndDay(state)) return false;
+  resolvePending(state);
   // Whoever survived the most runs gets a plaque, if anyone went out today.
   const wentOut = state.expeditions.length > 0;
   const best = state.crew.filter((w) => w.status === "idle" && w.runs > 0).sort((a, b) => b.xp - a.xp)[0];
@@ -48,6 +50,7 @@ export function endDay(state: GameState): boolean {
   delete state.fog["level-5"]; // the hotel rearranges itself overnight
   state.expeditions = [];
   state.pool = generatePool(state);
+  rollEvent(state);
   return true;
 }
 

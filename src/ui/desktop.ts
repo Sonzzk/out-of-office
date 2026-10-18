@@ -1,5 +1,5 @@
 import type { GameState } from "../sim/state";
-import { onChange } from "../store";
+import { game, onChange } from "../store";
 import { apps } from "./apps";
 import { isMuted, setMuted, sfx } from "./audio";
 import { notify, startUncanny } from "./uncanny";
@@ -127,6 +127,16 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   onChange(tick);
 
   startUncanny(desk, work);
+
+  // An event memo that needs an answer pops up once, wherever you are.
+  const announced = new Set(state.memos.map((m) => m.id));
+  onChange(() => {
+    for (const m of game().memos) {
+      if (announced.has(m.id)) continue;
+      announced.add(m.id);
+      if (m.event && m.event.choice === undefined) notify(desk, "./art/icons/U-envelope.png", `New memo: ${m.from.split(",")[0]}`, `${m.subject}. Needs your answer in the Memo Inbox.`);
+    }
+  });
 
   // First shift: the welcome memo and the map are already open.
   openApp(list[0]);
