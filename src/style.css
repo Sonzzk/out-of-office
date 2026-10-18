@@ -149,3 +149,8 @@ canvas.map { display: block; width: 100%; height: 100%; background: #0e1208; }
 .ic.tut-hint { animation: tut-pulse 1.4s ease-in-out infinite; border-color: #f3ecc0; }
 @keyframes tut-pulse { 50% { box-shadow: 0 0 0 4px rgba(243, 236, 192, 0.55); } }
 @media (prefers-reduced-motion: reduce) { .ic.tut-hint { animation: none; box-shadow: 0 0 0 3px rgba(243, 236, 192, 0.7); } }
+.handbook { overflow: auto; }
+.handbook h4 { margin: 6px 0 0; }
+.handbook .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.handbook .row input[type="range"] { flex: 1; }
+.handbook .credit p { margin: 2px 0 6px; }
