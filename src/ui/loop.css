@@ -121,3 +121,21 @@
 /* Lab */
 .lab .bench { display: flex; gap: 10px; align-items: center; padding: 8px; }
 .lab .bench img { width: 48px; height: 48px; object-fit: contain; }
+
+/* Map: run tabs and radio calls */
+.runtabs { display: flex; flex-wrap: wrap; gap: 2px; }
+.runtabs .tab { font: inherit; font-size: 11px; padding: 2px 6px; background: var(--face, #c0c0c0); border: 2px outset #fff; cursor: pointer; }
+.runtabs .tab.on { border-style: inset; font-weight: bold; }
+.runtabs .ring { color: #b3261e; animation: ring 0.6s steps(2) infinite; }
+@keyframes ring { 50% { color: transparent; } }
+.call { padding: 6px; display: grid; gap: 5px; font-size: 11px; border-color: #b3261e; background: #fff6d8; }
+.call .opts { display: flex; gap: 4px; flex-wrap: wrap; }
+.call .timer { height: 6px; background: #000; }
+.call .timer i { display: block; height: 100%; background: #b3261e; transition: width 0.3s linear; }
+
+/* HR jobs, Ledger heat */
+.crewrow .jobs { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+.crewrow .jobs .btn { font-size: 11px; padding: 1px 6px; }
+.ledger .heat { padding: 6px 8px; margin-top: 6px; display: grid; gap: 4px; }
+.ledger .heat .bar { height: 10px; background: #000; border: 1px solid var(--sh); }
+.ledger .heat .bar i { display: block; height: 100%; background: #c4572a; }

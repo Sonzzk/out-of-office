@@ -1,8 +1,10 @@
+import { CALL_OUTCOMES, CALL_TICKS, CALL_TIMEOUT, CALLS, VENDING_PRICE, type CallDef } from "../data/calls";
 import { ITEMS } from "../data/items";
 import { PLAQUES, WIPE_MEMO } from "../data/memos";
 import * as RADIO from "../data/radio";
 import { gainXp, hasQuirk, quirkDef, revealQuirk, skill, type Worker } from "./crew";
 import { DARK, dist, findPath, generateLevel, idx, nearestOpen, neighbors, WALL, type Level, type Pt } from "./level";
+import { addHeat, addInfection, HEAT_PER_DEATH, HEAT_PER_WIPE } from "./office";
 import { broughtHome, checkSurvey, isMastered, learn, stageOf } from "./research";
 import { Dice } from "./rng";
 import { addMemo, fill, type GameState } from "./state";
@@ -24,6 +26,8 @@ export interface Expedition {
   carried: string[];
   log: string[];
   encounters: number;
+  call?: { id: string; asked: number; m?: number }; // a question for the office, waiting for an answer
+  callsMade: number;
   result?: { survivors: number; dead: string[]; loot: string[]; notes: string[] };
 }
 
@@ -65,6 +69,9 @@ export function oddsWord(state: GameState, crewIds: number[]): string {
 }
 
 export const MAX_CREW = 4;
+export const CREW_SLOTS = 2; // expeditions that can be out at once
+
+export const running = (state: GameState) => state.expeditions.filter((e) => e.phase !== "done");
 
 // Default team lead: veterans first, then whoever has the best morale.
 export function suggestLead(crew: Worker[]): Worker {
@@ -76,7 +83,7 @@ export function startExpedition(state: GameState, crewIds: number[], marker: Pt,
     .map((id) => state.crew.find((w) => w.id === id))
     .filter((w): w is Worker => !!w && w.status === "idle")
     .slice(0, MAX_CREW);
-  if (!crew.length) return null;
+  if (!crew.length || running(state).length >= CREW_SLOTS) return null;
   const lv = level0(state);
   const waypoint = nearestOpen(lv, marker);
   const lead = crew.find((w) => w.id === leadId) ?? suggestLead(crew);
@@ -96,6 +103,7 @@ export function startExpedition(state: GameState, crewIds: number[], marker: Pt,
     carried: [],
     log: [`${lead.name}: Team lead here. Going in.`],
     encounters: 0,
+    callsMade: 0,
   };
   reveal(state, lv, exp.pos);
   state.expeditions.push(exp);
@@ -144,7 +152,15 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
     });
   }
 
-  if (!stalled) {
+  maybeCall(state, exp, dice, crew);
+  if (exp.call) {
+    // Waiting on the office. The crew holds still; the level doesn't.
+    if (exp.tick - exp.call.asked >= CALL_TICKS) {
+      const lead = crew.find((w) => w.id === exp.leadId) ?? crew[0];
+      exp.log.push(fill(CALL_TIMEOUT, { n: first(lead) }));
+      resolveCall(state, exp, callDef(exp.call.id).fallback, dice);
+    }
+  } else if (!stalled) {
     const target = exp.targets[0];
     const step = target ? findPath(lv, exp.pos, target)[0] : undefined;
     if (step) exp.pos = step;
@@ -377,7 +393,93 @@ function finish(state: GameState, exp: Expedition): void {
       body: fill(tpl.body, { name: w.name, words: w.lastWords ?? "..." }),
     });
   }
+  addHeat(state, dead.length * HEAT_PER_DEATH + (alive.length ? 0 : HEAT_PER_WIPE));
   if (!alive.length) addMemo(state, WIPE_MEMO);
+}
+
+// --- Radio calls -----------------------------------------------------------
+const callDef = (id: string): CallDef => CALLS.find((c) => c.id === id)!;
+
+function maybeCall(state: GameState, exp: Expedition, dice: Dice, crew: Worker[]): void {
+  if (exp.call || exp.callsMade || exp.phase !== "in" || exp.tick < 8 || !dice.chance(0.12)) return;
+  const options = CALLS.filter((c) => (c.needs === "pair" ? crew.length >= 2 : c.needs === "loot" ? exp.carried.length > 0 : true));
+  const def = dice.pick(options);
+  const caller = dice.pick(crew);
+  const other = crew.length > 1 ? dice.pick(crew.filter((w) => w !== caller)) : caller;
+  exp.call = { id: def.id, asked: exp.tick, m: other.id };
+  exp.callsMade++;
+  exp.log.push(fill(def.text, { n: first(caller), m: first(other), price: `$${VENDING_PRICE}` }));
+}
+
+// The player (or the timer) answers the crew's question.
+export function answerCall(state: GameState, exp: Expedition, choice: number): boolean {
+  if (!exp.call || exp.phase === "done") return false;
+  const dice = new Dice(exp.dice);
+  resolveCall(state, exp, choice, dice);
+  exp.dice = dice.state;
+  return true;
+}
+
+function resolveCall(state: GameState, exp: Expedition, choice: number, dice: Dice): void {
+  const call = exp.call!;
+  exp.call = undefined;
+  const lv = level0(state);
+  const crew = members(state, exp);
+  const lead = crew.find((w) => w.id === exp.leadId) ?? crew[0];
+  const m = crew.find((w) => w.id === call.m) ?? lead;
+  const line = (key: string, extra: Record<string, string> = {}) =>
+    exp.log.push(fill(dice.pick(CALL_OUTCOMES[`${call.id}:${key}`]), { n: first(lead), m: first(m), ...extra }));
+  const floorItem = () => dice.pick(Object.values(ITEMS).filter((i) => i.rarity > 0)).id;
+
+  if (call.id === "closet") {
+    if (choice === 1) return void line("leave");
+    if (dice.chance(0.6)) {
+      const item = floorItem();
+      exp.carried.push(item);
+      line("found", { item: ITEMS[item].name });
+    } else line("empty");
+    // The noise brings the Hound running.
+    const hound = exp.entities.find((r) => r.id === "hound");
+    if (hound) {
+      const near = neighbors(lv, exp.pos).flatMap((p) => neighbors(lv, p)).filter((p) => dist(p, exp.pos) >= 2);
+      if (near.length) hound.pos = dice.pick(near);
+      hound.cooldown = 0;
+    }
+  } else if (call.id === "phone") {
+    if (choice === 1) return void line("ignore");
+    for (let y = exp.pos.y - 7; y <= exp.pos.y + 7; y++)
+      for (let x = exp.pos.x - 7; x <= exp.pos.x + 7; x++)
+        if (x >= 0 && y >= 0 && x < lv.w && y < lv.h && dist(exp.pos, { x, y }) <= 7) state.fog[y * lv.w + x] = 1;
+    addInfection(state, 3);
+    line("answer");
+  } else if (call.id === "ankle") {
+    if (choice === 0) {
+      line("home");
+      return turnBack(lv, exp);
+    }
+    // Leaving someone to limp along is cheaper. The office notices.
+    addInfection(state, 2);
+    if (m !== lead && dice.chance(0.25)) {
+      line("lost");
+      m.lastWords = "Wait up. Guys? Wait up.";
+      m.status = "dead";
+      m.diedOnDay = state.day;
+    } else line("fine");
+  } else if (call.id === "vending") {
+    if (choice === 1 || state.cash < VENDING_PRICE) return void line("skip");
+    const item = dice.chance(0.5) ? "almond-water" : "royal-ration";
+    state.cash -= VENDING_PRICE;
+    state.ledger.unshift({ day: state.day, text: "Vending machine, Level 0", amount: -VENDING_PRICE });
+    exp.carried.push(item);
+    line("buy", { item: ITEMS[item].name });
+  } else if (call.id === "rival") {
+    if (choice === 1 || !exp.carried.length) return void line("refuse");
+    const item = exp.carried.shift()!;
+    const pay = Math.round(ITEMS[item].value * 1.3);
+    state.cash += pay;
+    state.ledger.unshift({ day: state.day, text: `Traded ${ITEMS[item].name} to a rival crew`, amount: pay });
+    line("trade", { item: ITEMS[item].name });
+  }
 }
 
 // The finished expedition stays visible as a debrief until the next one starts.

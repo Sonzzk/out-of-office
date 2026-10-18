@@ -1,5 +1,6 @@
 import { ITEMS } from "../data/items";
 import { canEndDay, endDay, sell, sellPrice, wage } from "../sim/economy";
+import { bribe, bribeCost, canBribe } from "../sim/office";
 import { game, update, watch } from "../store";
 import { art, esc, money } from "./dom";
 
@@ -10,12 +11,14 @@ export function renderLedger(body: HTMLElement): void {
     const sellBtn = t.closest<HTMLButtonElement>("[data-sell]");
     if (sellBtn) update((s) => void sell(s, Number(sellBtn.dataset.sell)));
     if (t.closest("[data-endday]")) update((s) => void endDay(s));
+    if (t.closest("[data-bribe]")) update((s) => void bribe(s));
   });
   watch(body, () => {
     const s = game();
     body.innerHTML = `
       <div class="cash inset"><span class="dim">Balance</span><b>${money(s.cash)}</b></div>
       ${target(s)}
+      ${heat(s)}
       <h3>Loot on hand</h3>
       ${
         s.loot.length
@@ -47,4 +50,12 @@ function target(s: ReturnType<typeof game>): string {
   const when = days <= 0 ? "due tonight" : days === 1 ? "due tomorrow" : `${days} days left`;
   return `<div class="target inset"><div class="dim">Fiscal year ${t.year} target: <b>${money(t.amount)}</b> by Day ${t.deadline} (${when})</div>
     <div class="bar"><i style="width:${pct}%" class="${pct >= 100 ? "met" : ""}"></i></div></div>`;
+}
+
+// Heat, and the discreet way to lower it.
+function heat(s: ReturnType<typeof game>): string {
+  const mood = s.heat >= 80 ? "An inspection is coming." : s.heat >= 60 ? "People are asking questions." : s.heat >= 30 ? "Some talk in town." : "Nobody is looking.";
+  return `<div class="heat inset"><div class="dim">Heat: <b>${s.heat}%</b>. ${mood}</div>
+    <div class="bar"><i style="width:${s.heat}%"></i></div>
+    ${s.heat >= 10 ? `<button class="btn" data-bribe ${canBribe(s) ? "" : "disabled"}>Donate to the inspector's retirement fund (${money(bribeCost(s))})</button>` : ""}</div>`;
 }

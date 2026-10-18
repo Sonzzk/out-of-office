@@ -1,5 +1,6 @@
 import { LEVEL_XP, SKILL_LABEL, SKILLS, SOURCE_INFO } from "../data/crew";
 import { hire, isVeteran, quirkDef, skill, type Worker } from "../sim/crew";
+import { assign, contractPay, OVERTIME_PAY } from "../sim/office";
 import { game, update, watch } from "../store";
 import { art, esc, money } from "./dom";
 
@@ -30,6 +31,7 @@ function xpBar(w: Worker): string {
 
 function statusText(w: Worker): string {
   if (w.status === "out") return "In the field";
+  if (w.status === "busy") return w.assignment === "overtime" ? "In the Overtime Room" : "On a safe contract";
   return w.runs ? `${w.runs} run${w.runs > 1 ? "s" : ""} survived` : "Fresh";
 }
 
@@ -38,6 +40,8 @@ export function renderHR(body: HTMLElement): void {
   body.addEventListener("click", (e) => {
     const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-hire]");
     if (btn) update((s) => void hire(s, Number(btn.dataset.hire)));
+    const job = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-job]");
+    if (job) update((s) => void assign(s, Number(job.dataset.worker), job.dataset.job as "contract" | "overtime"));
   });
   watch(body, () => {
     const s = game();
@@ -79,6 +83,12 @@ export function renderHR(body: HTMLElement): void {
                     ${xpBar(w)}<span class="dim st">${statusText(w)}</span></div>
                   ${skillBars(w)}
                   ${quirkLines(w)}
+                  ${
+                    w.status === "idle"
+                      ? `<div class="jobs"><button class="btn" data-job="contract" data-worker="${w.id}" title="Safe work on the lit edge. Back tonight.">Safe contract +${money(contractPay(w))}</button>
+                        <button class="btn" data-job="overtime" data-worker="${w.id}" title="Pays well. Nobody likes the Overtime Room.">Unpaid overtime +${money(OVERTIME_PAY)}</button></div>`
+                      : ""
+                  }
                 </div></div>`,
               )
               .join("")}</div>`

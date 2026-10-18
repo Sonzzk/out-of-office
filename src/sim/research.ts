@@ -1,6 +1,7 @@
 import { INDEX, indexEntry, STAGE_NAME, type Stage } from "../data/index";
 import { ITEMS } from "../data/items";
 import { WALL, type Level } from "./level";
+import { addHeat, HEAT_PER_DATA_SALE } from "./office";
 import type { GameState } from "./state";
 
 // What the company knows about each Index entry. Stages only ever go up.
@@ -100,6 +101,7 @@ export function sellData(state: GameState, id: string): number {
   const price = dataPrice(state, id);
   if (!price) return 0;
   state.index[id].dataSold = state.index[id].stage;
+  addHeat(state, HEAT_PER_DATA_SALE); // collectors talk
   state.cash += price;
   state.ledger.unshift({ day: state.day, text: `Sold ${indexEntry(id).name} data`, amount: price });
   return price;
