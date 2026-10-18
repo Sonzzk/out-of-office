@@ -1,5 +1,5 @@
 import { ITEMS } from "../data/items";
-import { canEndDay, endDay, sell, sellPrice, wage } from "../sim/economy";
+import { canEndDay, endDay, sell, sellAll, sellPrice, wage } from "../sim/economy";
 import { upkeep } from "../sim/facilities";
 import { DEEP_CLEAN_AMOUNT, DEEP_CLEAN_COST } from "../data/infection";
 import { canDeepClean, deepClean } from "../sim/infection";
@@ -13,6 +13,7 @@ export function renderLedger(body: HTMLElement): void {
     const t = e.target as HTMLElement;
     const sellBtn = t.closest<HTMLButtonElement>("[data-sell]");
     if (sellBtn) update((s) => void sell(s, Number(sellBtn.dataset.sell)));
+    if (t.closest("[data-sellall]")) update((s) => void sellAll(s));
     if (t.closest("[data-endday]")) update((s) => void endDay(s));
     if (t.closest("[data-bribe]")) update((s) => void bribe(s));
     if (t.closest("[data-clean]")) update((s) => void deepClean(s));
@@ -25,14 +26,14 @@ export function renderLedger(body: HTMLElement): void {
       ${heat(s)}
       ${s.infection >= 10 ? `<div class="heat inset"><div class="dim">Facilities reports the air is <b>${s.infection >= 60 ? "bad" : s.infection >= 30 ? "damp" : "a bit off"}</b>.</div>
         <button class="btn" data-clean ${canDeepClean(s) ? "" : "disabled"}>Book a deep clean (${money(DEEP_CLEAN_COST)}, clears ${DEEP_CLEAN_AMOUNT}%)</button></div>` : ""}
-      <h3>Loot on hand</h3>
+      <h3>Loot on hand${s.loot.length > 1 ? ` <button class="btn" data-sellall>Sell all ${money(s.loot.reduce((a, l) => a + sellPrice(l.itemId, s), 0))}</button>` : ""}</h3>
       ${
         s.loot.length
           ? `<div class="loot">${s.loot
               .map(
                 (l) => `<div class="row"><img src="${art.item(ITEMS[l.itemId].art)}" alt="">
                 <span class="nm">${esc(ITEMS[l.itemId].name)}<br><span class="dim">found by ${esc(l.foundBy)}</span></span>
-                <button class="btn" data-sell="${l.id}">Sell ${money(sellPrice(l.itemId))}</button></div>`,
+                <button class="btn" data-sell="${l.id}">Sell ${money(sellPrice(l.itemId, s))}</button></div>`,
               )
               .join("")}</div>`
           : `<p class="dim">Nothing to sell. Send a crew in.</p>`

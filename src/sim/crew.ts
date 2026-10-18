@@ -19,6 +19,7 @@ export interface Worker {
   diedOnDay?: number;
   lastWords?: string;
   boost?: number; // extra Morale while on a run (break room)
+  trainedDay?: number; // last day this person was sent on a course
 }
 
 export function quirkDef(id: string) {
@@ -114,5 +115,21 @@ export function gainXp(w: Worker, amount: number, dice: Dice): string[] {
 export function revealQuirk(w: Worker, id: string): boolean {
   if (!hasQuirk(w, id) || w.revealed.includes(id)) return false;
   w.revealed.push(id);
+  return true;
+}
+
+// Training: pay for a course and the next level arrives overnight, once a day.
+export const trainCost = (w: Worker) => 250 * w.level;
+export const canTrain = (state: GameState, w: Worker) =>
+  w.status === "idle" && w.level < LEVEL_XP.length && w.trainedDay !== state.day && state.cash >= trainCost(w);
+
+export function train(state: GameState, workerId: number): boolean {
+  const w = state.crew.find((x) => x.id === workerId);
+  if (!w || !canTrain(state, w)) return false;
+  const cost = trainCost(w);
+  state.cash -= cost;
+  w.trainedDay = state.day;
+  state.ledger.unshift({ day: state.day, text: `Training course: ${w.name}`, amount: -cost });
+  gainXp(w, Math.max(1, LEVEL_XP[w.level] - w.xp), new Dice((state.seed ^ Math.imul(w.id + state.day, 40503)) >>> 0));
   return true;
 }

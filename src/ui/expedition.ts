@@ -7,6 +7,7 @@ import { entityDef } from "../data/entities";
 import { GEAR, gearDef } from "../data/gear";
 import { LEVELS, levelDef } from "../data/levels";
 import { indexEntry } from "../data/index";
+import { sellPrice, wage } from "../sim/economy";
 import { crewSlots } from "../sim/facilities";
 import { surveyed, isUnlocked } from "../sim/research";
 import { answerCall, callTicks, levelOf, MAX_CREW, MAX_PINS, oddsWord, running, startExpedition, suggestLead, type Expedition } from "../sim/expedition";
@@ -17,6 +18,17 @@ import type { GameState } from "../sim/state";
 import { game, update, watch, type Topic } from "../store";
 import { art, esc } from "./dom";
 import { createBodycam, type Bodycam, type CamInput } from "./bodycam";
+
+// What the run was worth once the crew and the kit are paid for.
+function profitLine(exp: Expedition): string {
+  const s = game();
+  const loot = exp.result!.loot.reduce((a, id) => a + sellPrice(id, s), 0);
+  const gear = exp.gear.reduce((a, id) => a + gearDef(id).cost, 0);
+  const wages = exp.crewIds.map((id) => s.crew.find((w) => w.id === id)).filter((w) => w && w.status !== "dead").reduce((a, w) => a + wage(w!), 0);
+  const net = loot - gear - wages;
+  const part = (label: string, n: number) => `${label} ${n < 0 ? "-" : ""}$${Math.abs(n).toLocaleString("en-US")}`;
+  return `<div class="profit ${net < 0 ? "neg" : "pos"}"><b>Run profit: ${net < 0 ? "-" : "+"}$${Math.abs(net).toLocaleString("en-US")}</b> <span class="dim">(${part("loot", loot)}, ${part("a day's wages", -wages)}${gear ? `, ${part("gear", -gear)}` : ""})</span></div>`;
+}
 
 // Facility Map: plan a run by picking a level, a crew and a marker,
 // then watch it play out on the same schematic with the radio log beside it.
@@ -251,7 +263,8 @@ export function renderExpedition(body: HTMLElement): void {
               ? `${exp.result!.survivors} came back with ${exp.result!.loot.length ? exp.result!.loot.length + " item" + (exp.result!.loot.length > 1 ? "s" : "") + " to sell in the Ledger" : "nothing"}.`
               : "Nobody came back. Neither did the loot."
           }${exp.result!.dead.length ? `<br>Lost: ${exp.result!.dead.map(esc).join(", ")}. HR has sent a memo.` : ""}
-          ${exp.result!.notes.map((n) => `<br>${esc(n)}`).join("")}</div>
+          ${exp.result!.notes.map((n) => `<br>${esc(n)}`).join("")}
+          ${profitLine(exp)}</div>
           <button class="btn go" data-dismiss>Plan the next run</button>`
         : "";
     side.innerHTML = `${tabs()}<canvas class="bodycam"></canvas><div class="callbox"></div>${head}<div class="radio inset" aria-live="polite"></div>${debrief}`;

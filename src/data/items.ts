@@ -8,6 +8,7 @@ export interface ItemDef {
   value: number; // base sale price
   rarity: number; // relative spawn weight, 0 = never lies on the floor
   sampleOf?: string; // entity id: samples can be sold or researched, never both
+  unindexed?: boolean; // a one-off the Index has no page for
 }
 
 export const ITEMS: Record<string, ItemDef> = {
@@ -27,6 +28,8 @@ export const ITEMS: Record<string, ItemDef> = {
   "deuclidator": { id: "deuclidator", name: "Deuclidator", art: "I14-deuclidator.png", value: 700, rarity: 1 },
   "dumb-gum": { id: "dumb-gum", name: "Dumb Gum", art: "I15-dumb-gum.png", value: 160, rarity: 1 },
   "ghost-light": { id: "ghost-light", name: "Ghost Light", art: "I16-ghost-light.png", value: 420, rarity: 1 },
+  // Given to the first crew home, never lies on a floor.
+  "orientation-polaroid": { id: "orientation-polaroid", name: "Orientation Polaroid", art: "I06-polaroid.png", value: 380, rarity: 0, unindexed: true },
   // Samples come off entities a crew survived, see entities.ts.
   ...Object.fromEntries(
     ENTITIES.filter((e) => e.sample > 0).map((e) => [

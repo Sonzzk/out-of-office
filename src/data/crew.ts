@@ -68,5 +68,5 @@ export const QUIRKS: QuirkDef[] = [
     reveal: "{n}: The wall says hi. It says it knows you, boss." },
 ];
 
-export const LEVEL_XP = [0, 2, 5, 9]; // xp needed for levels 1 to 4
+export const LEVEL_XP = [0, 2, 5, 9, 14, 20]; // xp needed for levels 1 to 6
 export const LEAD_LEVEL = 3; // veterans from this level on

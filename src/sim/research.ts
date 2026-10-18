@@ -68,7 +68,7 @@ export function checkSurvey(state: GameState, lv: Level, levelId = "level-0"): s
 
 // Loot that reached the office counts toward documenting the item.
 export function broughtHome(state: GameState, itemId: string, by: string): string | null {
-  if (ITEMS[itemId].sampleOf) return null;
+  if (ITEMS[itemId].sampleOf || ITEMS[itemId].unindexed) return null;
   const k = known(state, itemId);
   k.count++;
   return learn(state, itemId, k.count >= ITEMS_TO_DOCUMENT ? 2 : 1, by);
