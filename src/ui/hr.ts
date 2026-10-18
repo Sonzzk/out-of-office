@@ -1,5 +1,6 @@
 import { LEVEL_XP, SKILL_LABEL, SKILLS, SOURCE_INFO } from "../data/crew";
 import { hire, isVeteran, quirkDef, skill, type Worker } from "../sim/crew";
+import { infectionStage } from "../sim/infection";
 import { assign, contractPay, OVERTIME_PAY } from "../sim/office";
 import { game, update, watch } from "../store";
 import { art, esc, money } from "./dom";
@@ -91,7 +92,7 @@ export function renderHR(body: HTMLElement): void {
                   }
                 </div></div>`,
               )
-              .join("")}</div>`
+              .join("")}${phantom(s)}</div>`
           : `<p class="dim">Nobody yet. Hire someone above.</p>`
       }
       ${
@@ -102,4 +103,15 @@ export function renderHR(body: HTMLElement): void {
           : ""
       }`;
   });
+}
+
+// Deep in the infection, HR lists one more employee than you hired.
+function phantom(s: ReturnType<typeof game>): string {
+  if (infectionStage(s) < 3) return "";
+  return `<div class="crewrow inset phantom">
+    <span class="nopt"></span>
+    <div class="info">
+      <div class="top"><span class="nm">${esc(s.bossName)}</span><span class="lv">Lv ?</span><span class="dim st">At your desk</span></div>
+      <div class="quirk"><b>Never left.</b> ${esc(s.catchphrase ?? "")}</div>
+    </div></div>`;
 }

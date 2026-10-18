@@ -2,6 +2,7 @@ import { ITEMS } from "../data/items";
 import { SOURCE_INFO } from "../data/crew";
 import { EMPLOYEE_OF_THE_MONTH, PAYROLL, RESEARCH_DONE, TARGET_MET, TARGET_MISSED } from "../data/memos";
 import { generatePool, isVeteran, type Worker } from "./crew";
+import { nightInfection } from "./infection";
 import { nightShift } from "./office";
 import { finishResearch } from "./research";
 import { addMemo, fill, type GameState } from "./state";
@@ -38,6 +39,7 @@ export function endDay(state: GameState): boolean {
   const lab = finishResearch(state);
   if (lab) addMemo(state, { ...RESEARCH_DONE, body: fill(RESEARCH_DONE.body, { note: lab }) });
   nightShift(state);
+  nightInfection(state);
   payroll(state);
   state.day++;
   checkTarget(state);

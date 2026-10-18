@@ -1,5 +1,7 @@
 import { ITEMS } from "../data/items";
 import { canEndDay, endDay, sell, sellPrice, wage } from "../sim/economy";
+import { DEEP_CLEAN_AMOUNT, DEEP_CLEAN_COST } from "../data/infection";
+import { canDeepClean, deepClean } from "../sim/infection";
 import { bribe, bribeCost, canBribe } from "../sim/office";
 import { game, update, watch } from "../store";
 import { art, esc, money } from "./dom";
@@ -12,6 +14,7 @@ export function renderLedger(body: HTMLElement): void {
     if (sellBtn) update((s) => void sell(s, Number(sellBtn.dataset.sell)));
     if (t.closest("[data-endday]")) update((s) => void endDay(s));
     if (t.closest("[data-bribe]")) update((s) => void bribe(s));
+    if (t.closest("[data-clean]")) update((s) => void deepClean(s));
   });
   watch(body, () => {
     const s = game();
@@ -19,6 +22,8 @@ export function renderLedger(body: HTMLElement): void {
       <div class="cash inset"><span class="dim">Balance</span><b>${money(s.cash)}</b></div>
       ${target(s)}
       ${heat(s)}
+      ${s.infection >= 10 ? `<div class="heat inset"><div class="dim">Facilities reports the air is <b>${s.infection >= 60 ? "bad" : s.infection >= 30 ? "damp" : "a bit off"}</b>.</div>
+        <button class="btn" data-clean ${canDeepClean(s) ? "" : "disabled"}>Book a deep clean (${money(DEEP_CLEAN_COST)}, clears ${DEEP_CLEAN_AMOUNT}%)</button></div>` : ""}
       <h3>Loot on hand</h3>
       ${
         s.loot.length
