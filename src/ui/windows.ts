@@ -1,5 +1,6 @@
 // Win95-style window manager: open, focus, drag, resize, minimize, maximize,
 // close. One window per app id. Dialogs are windows too, just modal-looking.
+import { access } from "../access";
 import { sfx } from "./audio";
 
 export interface AppDef {
@@ -16,6 +17,8 @@ interface Win {
   minimized: boolean;
   /** Position before maximizing, so restore puts it back. */
   restore: { left: string; top: string; width: string; height: string } | null;
+  /** Phone mode: fills the whole work area, and follows it when it changes size. */
+  narrow?: boolean;
 }
 
 const open = new Map<string, Win>();
@@ -34,7 +37,14 @@ export function initWindows(root: HTMLElement): void {
   window.addEventListener("resize", () => {
     for (const w of open.values()) {
       if (w.restore) fit(w.el);
-      else clamp(w.el);
+      else {
+        if (w.narrow) w.el.style.height = `${desk.clientHeight - 8}px`;
+        // A bigger interface leaves less room: never let a window outgrow the desk.
+        if (w.el.offsetWidth > desk.clientWidth - 8) w.el.style.width = `${desk.clientWidth - 8}px`;
+        if (w.el.offsetHeight > desk.clientHeight - 8) w.el.style.height = `${desk.clientHeight - 8}px`;
+        clamp(w.el);
+        fitV(w.el);
+      }
     }
   });
 }
@@ -139,10 +149,12 @@ export function openApp(app: AppDef, at?: { x: number; y: number }): HTMLElement
   const h = narrow ? desk.clientHeight - 8 : Math.min(app.h, desk.clientHeight - 8);
   // Cascade new windows so they don't stack exactly on top of each other.
   const offset = narrow ? 0 : (open.size % 6) * 26;
+  // The window must fit the room: pull it up rather than let its bottom hang off the screen.
+  const top = Math.max(0, Math.min(at?.y ?? (narrow ? 4 : 40 + offset), desk.clientHeight - h - 4));
   el.style.width = `${w}px`;
   el.style.height = `${h}px`;
   el.style.left = `${at?.x ?? (desk.clientWidth - w) / 2 + offset}px`;
-  el.style.top = `${at?.y ?? (narrow ? 4 : 40 + offset)}px`;
+  el.style.top = `${top}px`;
   el.innerHTML = `
     <div class="tb"><span></span>
       <button data-act="min" aria-label="Minimize">_</button>
@@ -174,7 +186,7 @@ export function openApp(app: AppDef, at?: { x: number; y: number }): HTMLElement
 
   desk.appendChild(el);
   clamp(el);
-  open.set(app.id, { el, title: app.title, minimized: false, restore: null });
+  open.set(app.id, { el, title: app.title, minimized: false, restore: null, narrow });
   app.render(el.querySelector(".body")!);
   sfx("open");
   focus(app.id);
@@ -226,6 +238,14 @@ function clamp(el: HTMLElement): void {
   el.style.top = `${Math.max(0, Math.min(el.offsetTop, maxY))}px`;
 }
 
+/** Keep the bottom edge on screen: move up first, then shrink if the window is taller than the room. */
+function fitV(el: HTMLElement): void {
+  const room = desk.clientHeight;
+  if (el.offsetTop + el.offsetHeight <= room) return;
+  el.style.top = `${Math.max(0, room - el.offsetHeight - 4)}px`;
+  if (el.offsetTop + el.offsetHeight > room) el.style.height = `${Math.max(120, room - el.offsetTop - 4)}px`;
+}
+
 function fit(el: HTMLElement): void {
   Object.assign(el.style, { left: "0px", top: "0px", width: `${desk.clientWidth}px`, height: `${desk.clientHeight}px` });
 }
@@ -237,7 +257,9 @@ function drag(handle: HTMLElement, onMove: (dx: number, dy: number) => void, onE
     const x0 = e.clientX;
     const y0 = e.clientY;
     handle.setPointerCapture(e.pointerId);
-    const move = (ev: PointerEvent) => onMove(ev.clientX - x0, ev.clientY - y0);
+    // Pointer movement is in screen pixels; the interface may be zoomed.
+    const zoom = access().scale / 100;
+    const move = (ev: PointerEvent) => onMove((ev.clientX - x0) / zoom, (ev.clientY - y0) / zoom);
     const up = () => {
       handle.removeEventListener("pointermove", move);
       handle.removeEventListener("pointerup", up);
