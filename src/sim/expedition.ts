@@ -71,7 +71,10 @@ export function levelOf(state: GameState, levelId: string): Level {
     cache.set(key, lv);
   }
   const fog = state.fog[levelId];
-  if (!fog || fog.length !== lv.cells.length) state.fog[levelId] = new Array(lv.cells.length).fill(0);
+  if (!fog || fog.length !== lv.cells.length) {
+    state.fog[levelId] = new Array(lv.cells.length).fill(0);
+    reveal(state, lv, levelId, lv.entrance, 4); // the lobby is known before anyone goes in
+  }
   state.takenToday[levelId] ??= [];
   return lv;
 }

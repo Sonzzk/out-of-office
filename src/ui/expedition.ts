@@ -273,8 +273,9 @@ export function renderExpedition(body: HTMLElement): void {
         const px = ox + x * cell;
         const py = oy + y * cell;
         if (!fog[i]) {
-          ctx.fillStyle = "rgba(201,186,90,0.05)";
-          ctx.fillRect(px + cell / 2 - 1, py + cell / 2 - 1, 2, 2);
+          // Unexplored: a faint grid so the map reads as a map, not a black box.
+          ctx.fillStyle = "#1b2110";
+          ctx.fillRect(px, py, cell - 1, cell - 1);
           continue;
         }
         const c = lv.cells[i];
@@ -333,6 +334,13 @@ export function renderExpedition(body: HTMLElement): void {
     }
 
     const pct = Math.round(100 * surveyed(s, lv, levelId));
+    if (!exp && pct < 15) {
+      ctx.fillStyle = "rgba(233,226,176,0.75)";
+      ctx.font = `${12 * devicePixelRatio}px monospace`;
+      ctx.textAlign = "center";
+      ctx.fillText("Unexplored. Click the map to drop a marker, then send a crew.", w / 2, h - 14 * devicePixelRatio);
+      ctx.textAlign = "start";
+    }
     ctx.fillStyle = "#e9e2b0";
     ctx.font = `bold ${11 * devicePixelRatio}px monospace`;
     ctx.fillText(`LEVEL ${levelDef(levelId).depth} · SURVEYED ${pct}%`, 8 * devicePixelRatio, 16 * devicePixelRatio);

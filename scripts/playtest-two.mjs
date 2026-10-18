@@ -22,6 +22,7 @@ await page.waitForSelector("#desk .win");
 await page.evaluate(() => {
   const s = JSON.parse(localStorage.getItem("out-of-office.save"));
   s.cash = 5000; // enough to hire four
+  s.upgrades = { mast: 2 }; // calls wait twice as long, so a slow test can still answer
   localStorage.setItem("out-of-office.save", JSON.stringify(s));
 });
 await page.goto(`http://localhost:5199/?fast`);
@@ -60,10 +61,12 @@ for (let i = 0; i < 300 && !answered; i++) {
     await ring.first().click();
     // The call can run out while we switch tabs; then wait for the next one.
     const button = map.locator("[data-answer]").first();
+    await button.waitFor({ timeout: 1500 }).catch(() => {});
     if (await button.count()) {
-      await page.screenshot({ path: "shots/two-2-call.png" });
-      console.log("call:", (await map.locator(".radio p").last().textContent()).trim());
+      const text = (await map.locator(".radio p").last().textContent()).trim();
       answered = await button.click({ timeout: 2000 }).then(() => true, () => false);
+      await page.screenshot({ path: "shots/two-2-call.png" });
+      console.log("call:", text);
     }
   }
   if (!(await map.locator(".runtabs").textContent()).includes("out")) break;
