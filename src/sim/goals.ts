@@ -1,4 +1,5 @@
 import { Dice } from "./rng";
+import { twistIs, RUSH_BONUS } from "./twists";
 import { addMemo, type GameState } from "./state";
 
 export type GoalKind = "haul" | "earn" | "home";
@@ -43,6 +44,10 @@ export function noteGoal(state: GameState, kind: GoalKind, n: number): void {
   g.have += n;
   if (g.have < g.need) return;
   g.done = true;
-  state.cash += g.reward;
-  state.ledger.unshift({ day: state.day, text: "The Board: goal met", amount: g.reward });
+  const pay = goalPay(state, g);
+  state.cash += pay;
+  state.ledger.unshift({ day: state.day, text: "The Board: goal met", amount: pay });
 }
+
+// Quarter-end rush doubles what the goal pays.
+export const goalPay = (state: GameState, g: Goal) => g.reward * (twistIs(state, "rush") ? RUSH_BONUS : 1);

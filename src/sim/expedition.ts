@@ -1,4 +1,5 @@
 import { noteGoal } from "./goals";
+import { twistIs } from "./twists";
 import { CALL_GAP, CALL_OUTCOMES, CALL_TICKS, CALL_TIMEOUT, CALLS, MAX_CALLS, THREAT_LINES, THREAT_OUTCOMES, THREAT_TICKS, VENDING_PRICE, type CallDef } from "../data/calls";
 import { entityDef } from "../data/entities";
 import { ECHO_LINES, INFECTED_RADIO } from "../data/infection";
@@ -186,7 +187,7 @@ export function startExpedition(
 
 function reveal(state: GameState, lv: Level, levelId: string, p: Pt, radius?: number): void {
   const fog = state.fog[levelId];
-  const lit = levelDef(levelId).vision ?? (state.outageDay === state.day ? 2 : VISION); // power cut or tall wheat: less seen
+  const lit = levelDef(levelId).vision ?? (state.outageDay === state.day || twistIs(state, "fog") ? 2 : VISION); // power cut, fog or tall wheat: less seen
   const r = radius ?? (lv.cells[idx(lv, p)] === DARK ? 1 : lit);
   for (let y = p.y - r; y <= p.y + r; y++)
     for (let x = p.x - r; x <= p.x + r; x++)
