@@ -1,5 +1,5 @@
 import { INDEX } from "../data/index";
-import { ACT_MEMOS, ACT_RADIO, BEATS, ENDINGS, FINAL_RADIO, QUARTER_MEMOS, STORY_EVENTS, type StoryBeat, type StoryFx } from "../data/story";
+import { ACT_MEMOS, ACT_RADIO, BEATS, ENDINGS, ENDING_ORDER, FINAL_RADIO, QUARTER_MEMOS, STORY_EVENTS, type StoryBeat, type StoryFx } from "../data/story";
 import { fill, addMemo, type GameState, type Memo } from "./state";
 import { levelOf, MAX_CREW, running, startExpedition, type Expedition } from "./expedition";
 import { dist, findPath, WALL } from "./level";
@@ -13,6 +13,7 @@ import { skill } from "./crew";
 export const ACT2_DAY = 13;
 export const ACT3_DAY = 20;
 export const ACT3_MASTERED = 4; // Index entries at Mastered
+export const ACT3_HOLD_DAY = 30; // Act 3 waits for the rest of Act 2 until this day
 export const ACT3_TARGET_YEAR = 3; // the Board's second target has been met
 export const QUARTER_LENGTH = 10;
 export const MAX_BEATS_PER_NIGHT = 2;
@@ -38,6 +39,13 @@ export function exitRules(s: GameState): { label: string; done: boolean }[] {
   ];
 }
 export const exitReady = (s: GameState) => s.day >= ACT3_DAY && exitRules(s).every((r) => r.done);
+
+// The Act 2 beats still to come. The last one (the Board's final notice) is Act 3's
+// own cue and never holds it back.
+const act2Pending = (s: GameState) =>
+  BEATS.some((b) => b.act === 2 && b.id !== "board-last" && !flag(s, `beat.${b.id}`) && (s.day < b.day || !b.when || b.when(s)));
+// The Exit opens once the conditions are met and Act 2 has said what it had to say.
+export const act3Open = (s: GameState) => exitReady(s) && (s.day >= ACT3_HOLD_DAY || !act2Pending(s));
 
 function say(s: GameState, m: { from: string; subject: string; body: string }) {
   addMemo(s, { ...m, subject: fill(m.subject, { q: flag(s, "quarter") + 1 }) });
@@ -93,12 +101,13 @@ function nightStory(s: GameState): void {
   if (s.act === 1 && s.day >= ACT2_DAY) {
     s.act = 2;
     say(s, ACT_MEMOS[2]);
-  } else if (s.act === 2 && exitReady(s)) {
+  } else if (s.act === 2 && act3Open(s)) {
     s.act = 3;
     say(s, ACT_MEMOS[3]);
   }
   if (s.act === 4) return quarterNight(s);
-  const due = BEATS.filter((b) => b.act === s.act && s.day >= b.day && !flag(s, `beat.${b.id}`) && (!b.when || b.when(s)));
+  // Whatever Act 2 left unsaid still arrives in Act 3, so the Table is explained before it is sat at.
+  const due = BEATS.filter((b) => (b.act === s.act || (s.act === 3 && b.act === 2)) && s.day >= b.day && !flag(s, `beat.${b.id}`) && (!b.when || b.when(s)));
   for (const b of due.slice(0, MAX_BEATS_PER_NIGHT)) sendBeat(s, b);
 }
 
@@ -163,6 +172,30 @@ export function endingFor(s: GameState, survivors: number): string {
   return "daylight";
 }
 
+// Where the run is heading, in plain words and without naming an ending.
+export function standing(s: GameState): string[] {
+  const lines: string[] = [];
+  lines.push(
+    s.infection >= HIGH_INFECTION ? "The office is far gone. The air is mostly someone else's now."
+      : s.infection >= 25 ? "The office is unwell. It is getting worse on its own."
+      : "The office is still mostly itself.",
+  );
+  lines.push(
+    s.heat >= HIGH_HEAT ? "The inspectors are loud. Someone has a clipboard out for you."
+      : s.heat >= 30 ? "The inspectors have noticed you. They have not decided yet."
+      : "Nobody official is watching.",
+  );
+  if (flag(s, "derek") === 1) lines.push("Derek Vance thinks you have a deal. He has told people.");
+  else if (flag(s, "replied") >= LOYAL_REPLIES && s.cash >= LOYAL_CASH && deadCount(s) <= LOYAL_MAX_DEAD) lines.push("The Board is pleased with you. That should worry you more than it does.");
+  else lines.push("The Board is waiting to see what sort of employee you turn out to be.");
+  return lines;
+}
+
+// The endings in a stable order, each flagged seen or still locked.
+export function endingSlots(s: GameState): { id: string; title: string; seen: boolean }[] {
+  return ENDING_ORDER.map((id) => ({ id, title: ENDINGS[id].title, seen: (s.endings ?? []).includes(id) }));
+}
+
 export function setEnding(s: GameState, id: string): void {
   s.ending = id;
   s.endings = [...new Set([...(s.endings ?? []), id])];
@@ -179,6 +212,8 @@ export function resolveDescent(s: GameState): string | null {
     setFlag(s, `final.${e.id}`, 1);
     const survivors = e.result?.survivors ?? 0;
     if (!survivors || e.reached) {
+      const names = e.crewIds.map((id) => s.crew.find((w) => w.id === id)).filter((w) => !!w);
+      s.endingCrew = { present: names.filter((w) => w.status !== "dead").map((w) => w.name), missing: names.filter((w) => w.status === "dead").map((w) => w.name) };
       setEnding(s, endingFor(s, survivors));
       return s.ending!;
     }
@@ -195,6 +230,7 @@ export function resolveDescent(s: GameState): string | null {
 export const canResign = (s: GameState) => !s.ending && actOf(s) >= 2 && !running(s).some((e) => e.final);
 export function resign(s: GameState): boolean {
   if (!canResign(s)) return false;
+  s.endingCrew = undefined;
   setEnding(s, s.infection >= HIGH_INFECTION ? "looped" : "resigned");
   return true;
 }
@@ -209,6 +245,7 @@ export function startQuarter(s: GameState): boolean {
   if (q.infection !== undefined) s.infection = q.infection;
   s.ledger.unshift({ day: s.day, text: "New quarter: opening balance", amount: q.cash });
   s.ending = undefined;
+  s.endingCrew = undefined;
   s.act = 4;
   setFlag(s, "quarter", flag(s, "quarter") + 1);
   setFlag(s, "quarterDay", s.day);

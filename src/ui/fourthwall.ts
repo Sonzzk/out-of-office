@@ -20,8 +20,11 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
 export function startFourthWall(desk: HTMLElement, game: () => GameState): void {
   const recording = () => {
-    if (!hasAsked() && infectionStage(game()) >= 3 && !document.hidden) {
+    // Never in calm mode, and never on top of a call or a threat on a running feed.
+    const busy = game().expeditions.some((e) => e.phase !== "done" && (e.call || e.threat));
+    if (!hasAsked() && !isCalm() && !busy && infectionStage(game()) >= 3 && !document.hidden) {
       markAsked();
+      const before = new Set(Array.from(desk.querySelectorAll(".win.dialog")));
       void dialog(
         "Facilities",
         "Facilities has noticed a red light on your end. Are you recording?",
@@ -37,6 +40,11 @@ export function startFourthWall(desk: HTMLElement, game: () => GameState): void 
           notify(desk, "./art/icons/U-padlock.png", "Facilities", "Good. Neither are we.");
         }
       });
+      // Nobody answered: it counts as No, after about ten seconds.
+      window.setTimeout(() => {
+        const mine = Array.from(desk.querySelectorAll<HTMLElement>(".win.dialog")).find((d) => !before.has(d) && d.textContent?.includes("red light"));
+        Array.from(mine?.querySelectorAll<HTMLButtonElement>(".dlg-btns .btn") ?? []).find((b) => b.textContent === "No")?.click();
+      }, 10_000); // real seconds, even under ?fast
     }
     later(recording, 15_000);
   };

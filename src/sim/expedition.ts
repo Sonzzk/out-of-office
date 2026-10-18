@@ -330,6 +330,8 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
       if (exp.final) {
         exp.reached = true;
         say(exp, dice, crew, FINAL_ARRIVE);
+        exp.dice = dice.state;
+        return finish(state, exp); // the run ends at the door; the ending takes it from here
       }
       turnBack(lv, exp);
     }

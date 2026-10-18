@@ -10,6 +10,7 @@ import { esc } from "./dom";
 import { notify } from "./uncanny";
 import { onWindowsChanged, openApp, openWindows } from "./windows";
 
+const STUCK = "3:00 AM";
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const later = (fn: () => void, ms: number) => window.setTimeout(fn, ms);
 
@@ -30,9 +31,23 @@ export function startInfestation(desk: HTMLElement, work: HTMLElement): void {
   stain.setAttribute("aria-hidden", "true");
   work.appendChild(stain);
 
+  // The stage's look stays on the desktop: a drained picture and a darker edge.
+  const vignette = document.createElement("div");
+  vignette.className = "inf-vignette";
+  vignette.setAttribute("aria-hidden", "true");
+  work.appendChild(vignette);
+  // From stage three the taskbar clock is stuck at 3:00. The tick rewrites it every second, so hold it.
+  const clock = desk.querySelector<HTMLElement>("[data-clock]");
+  const holdClock = () => {
+    if (clock && !isCalm() && infectionStage(game()) >= 3 && clock.textContent !== STUCK) clock.textContent = STUCK;
+  };
+  if (clock) new MutationObserver(holdClock).observe(clock, { childList: true, characterData: true, subtree: true });
+
   let iconShown = false;
   const sync = (announce: boolean) => {
     const stage = infectionStage(game());
+    for (const n of [2, 3, 4]) desk.classList.toggle(`inf-${n}`, !isCalm() && stage === n);
+    holdClock();
     stain.style.opacity = isCalm() || stage < 1 ? "0" : String(Math.min(0.55, 0.12 + stage * 0.11));
     stain.style.setProperty("--grow", String(0.6 + stage * 0.35));
     if (stage >= 2 && !iconShown) {
