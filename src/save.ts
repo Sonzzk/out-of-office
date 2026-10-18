@@ -1,13 +1,41 @@
-import { migrate, type GameState } from "./sim/state";
+import { migrate, SAVE_VERSION, type GameState } from "./sim/state";
 
 // Browser-only saving (concept.md, round 5).
 const KEY = "out-of-office.save";
+const BACKUP_KEY = "out-of-office.save.backup";
+
+export interface ReadResult {
+  state: GameState | null;
+  /** Why a non-empty save could not be used, if it could not. */
+  problem?: "unreadable" | "newer";
+}
+
+/** Read save text. A save we cannot use is reported, never silently dropped. */
+export function readSave(raw: string | null): ReadResult {
+  if (!raw) return { state: null };
+  try {
+    const parsed = JSON.parse(raw);
+    const state = migrate(parsed);
+    if (state) return { state };
+    return { state: null, problem: parsed?.version > SAVE_VERSION ? "newer" : "unreadable" };
+  } catch {
+    return { state: null, problem: "unreadable" };
+  }
+}
+
+/** Set when the last load had to put a save aside, so the desktop can say so. */
+export let loadProblem: ReadResult["problem"];
 
 export function loadGame(): GameState | null {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return null;
-    return migrate(JSON.parse(raw));
+    const result = readSave(raw);
+    if (result.problem) {
+      // Keep the unusable save under another key so a new game does not overwrite it.
+      localStorage.setItem(BACKUP_KEY, raw!);
+      loadProblem = result.problem;
+    }
+    return result.state;
   } catch {
     return null;
   }
@@ -15,11 +43,7 @@ export function loadGame(): GameState | null {
 
 /** Turn pasted or uploaded save text into a current game, or null if it is not one. */
 export function parseSave(text: string): GameState | null {
-  try {
-    return migrate(JSON.parse(text));
-  } catch {
-    return null;
-  }
+  return readSave(text).state;
 }
 
 export function exportSave(state: GameState): string {

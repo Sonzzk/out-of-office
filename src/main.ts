@@ -1,6 +1,6 @@
 import "./style.css";
 import "./ui/loop.css";
-import { loadGame, saveGame } from "./save";
+import { loadGame, loadProblem, saveGame } from "./save";
 import { stepExpedition } from "./sim/expedition";
 import { newGame } from "./sim/state";
 import { TITLE_AWAY } from "./data/infection";
@@ -10,6 +10,7 @@ import { isStreamer, shownName } from "./privacy";
 import { initStore, onChange, update, updateTick } from "./store";
 import { boot } from "./ui/boot";
 import { mountDesktop } from "./ui/desktop";
+import { dialog } from "./ui/windows";
 import { setStage } from "./ui/glitch";
 import { setUnease } from "./ui/uncanny";
 
@@ -29,6 +30,14 @@ void boot(document.body, state, params.has("fast")).then(() => {
   saveGame(state);
   initStore(state);
   mountDesktop(desk, state);
+  if (loadProblem) {
+    void dialog(
+      "HR",
+      loadProblem === "newer"
+        ? "Your saved office is from a newer version of this game, so a fresh one was started. The old one is kept safe in this browser."
+        : "Your saved office could not be read, so a fresh one was started. The old one is kept safe in this browser.",
+    );
+  }
   // The desktop gets worse as the infection grows.
   if (forcedUnease === null) onChange(() => setUnease(uneaseFor(state)));
   if (forcedStage === null) onChange(() => setStage(infectionStage(state)));
@@ -52,3 +61,11 @@ setInterval(() => {
   updateTick((s) => running.forEach((e) => stepExpedition(s, e)));
   if (running.some((e) => e.phase === "done")) update(() => {});
 }, TICK_MS);
+
+// If something throws, say so once instead of leaving a silently frozen desktop.
+let reported = false;
+addEventListener("error", () => {
+  if (reported || !document.getElementById("desk")?.querySelector(".win")) return;
+  reported = true;
+  void dialog("Out of Office", "Something went wrong. Your progress is saved. If the desk looks stuck, reload the page.");
+});
