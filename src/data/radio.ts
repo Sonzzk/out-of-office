@@ -16,7 +16,7 @@ export const LOST = [
   "{n}: This hallway wasn't here a second ago. Rerouting.",
 ];
 export const LOOT = ["{n}: Got something. {item}. Bagging it.", "{n}: {item}! Is that worth anything? Say yes."];
-export const ARRIVE = ["{n}: Reached your marker. It's an empty room. Great.", "{n}: We're at the X. Nothing here but carpet. Heading back."];
+export const ARRIVE = ["{n}: Reached your pin. It's an empty room. Great.", "{n}: We're at the X. Nothing here but carpet."];
 export const RETREAT = ["{n}: That's it. I'm calling it. We're coming back.", "{n}: Team lead's call: we turn around. Dock my pay."];
 export const HOME = ["{n}: Back at the door. Never again. Until tomorrow."];
 export const WIPE = ["...static..."];

@@ -7,7 +7,7 @@ export const WELCOME = {
     "Your office has been prepared. The carpet is new. The hum is normal.\n\n" +
     "To get started:\n" +
     "1. Open HR Roster and hire someone. Anyone.\n" +
-    "2. Open the Facility Map, click somewhere in the dark to drop a marker, and send them.\n" +
+    "2. Open the Facility Map, click somewhere in the dark to drop a pin, and send them.\n" +
     "3. Sell whatever comes back in the Ledger.\n\n" +
     "Please do not open the door at the end of the hall yourself.\n\nHave a productive day.",
 };

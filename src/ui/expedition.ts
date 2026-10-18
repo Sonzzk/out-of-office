@@ -9,7 +9,7 @@ import { LEVELS, levelDef } from "../data/levels";
 import { indexEntry } from "../data/index";
 import { crewSlots } from "../sim/facilities";
 import { surveyed, isUnlocked } from "../sim/research";
-import { answerCall, callTicks, levelOf, MAX_CREW, oddsWord, running, startExpedition, suggestLead, type Expedition } from "../sim/expedition";
+import { answerCall, callTicks, levelOf, MAX_CREW, MAX_PINS, oddsWord, running, startExpedition, suggestLead, type Expedition } from "../sim/expedition";
 import { infectionStage } from "../sim/infection";
 import { DARK, FLOOR, idx, type Pt } from "../sim/level";
 import { makeRng } from "../sim/rng";
@@ -29,7 +29,7 @@ export function renderExpedition(body: HTMLElement): void {
   canvas.setAttribute("role", "img");
   canvas.setAttribute("aria-label", "Facility map of the selected level. The radio log beside it describes what the crew finds.");
   const side = body.querySelector<HTMLElement>(".side")!;
-  let marker: Pt | null = null;
+  let pins: Pt[] = []; // route for the next run, visited in order
   const picked = new Set<number>();
   let leadId: number | null = null;
   const dismissed = new Set<number>(); // finished runs whose debrief was closed
@@ -76,7 +76,9 @@ export function renderExpedition(body: HTMLElement): void {
     const x = Math.floor(((ev.clientX - r.left) * scale - ox) / cell);
     const y = Math.floor(((ev.clientY - r.top) * scale - oy) / cell);
     if (x >= 0 && y >= 0 && x < lv.w && y < lv.h) {
-      marker = { x, y };
+      const at = pins.findIndex((p) => p.x === x && p.y === y);
+      if (at >= 0) pins.splice(at, 1); // click a pin again to lift it
+      else if (pins.length < MAX_PINS) pins.push({ x, y });
       draw();
       renderSide();
     }
@@ -86,7 +88,7 @@ export function renderExpedition(body: HTMLElement): void {
     const t = ev.target as HTMLElement;
     const pickLevel = t.closest<HTMLElement>("[data-level]");
     if (pickLevel) {
-      if (pickLevel.dataset.level !== planLevel) marker = null;
+      if (pickLevel.dataset.level !== planLevel) pins = [];
       planLevel = pickLevel.dataset.level!;
       renderSide();
       draw();
@@ -127,8 +129,14 @@ export function renderExpedition(body: HTMLElement): void {
       renderSide();
       return;
     }
-    if (t.closest("[data-send]") && marker) {
-      const m = marker;
+    if (t.closest("[data-clearpins]")) {
+      pins = [];
+      renderSide();
+      draw();
+      return;
+    }
+    if (t.closest("[data-send]") && pins.length) {
+      const m = pins;
       const lead = leadId ?? undefined;
       update((s) => {
         const exp = startExpedition(s, [...picked], m, lead, planLevel, [...packed]);
@@ -138,7 +146,7 @@ export function renderExpedition(body: HTMLElement): void {
       picked.clear();
       packed.clear();
       leadId = null;
-      marker = null;
+      pins = [];
     }
     if (t.closest("[data-dismiss]")) {
       const exp = current();
@@ -205,8 +213,9 @@ export function renderExpedition(body: HTMLElement): void {
       }
       ${busyList(s)}
       ${picked.size ? `<p class="dim">Up to ${MAX_CREW}. The team lead decides when to turn back.</p>` : ""}
-      <h4>2. Drop a marker</h4>
-      <p class="dim">${marker ? "Marker set. Click the map to move it." : "Click anywhere on the map. Dark areas are unexplored."}</p>
+      <h4>2. Drop pins</h4>
+      <p class="dim">${pins.length ? `${pins.length} of ${MAX_PINS} pins. The crew visits them in order, then heads home. Click a pin to lift it.` : `Click the map to drop up to ${MAX_PINS} pins. Dark areas are unexplored.`}
+      ${pins.length ? `<button class="btn" data-clearpins>Clear pins</button>` : ""}</p>
       <h4>3. Pack gear <span class="dim">(optional, used up)</span></h4>
       <div class="gear">${GEAR.map((g) => {
         const spent = [...packed].filter((id) => id !== g.id).reduce((a, id) => a + gearDef(id).cost, 0);
@@ -215,7 +224,7 @@ export function renderExpedition(body: HTMLElement): void {
           <img src="${art.item(g.art)}" alt="">${esc(g.name)} <span class="dim">$${g.cost}</span></label>`;
       }).join("")}</div>
       <div class="odds">Survival odds: <b>${picked.size ? oddsWord(s, [...picked]) : "..."}</b></div>
-      <button class="btn go big" data-send ${picked.size && marker ? "" : "disabled"}>Send them in</button>`;
+      <button class="btn go big" data-send ${picked.size && pins.length ? "" : "disabled"}>Send them in</button>`;
   }
 
   let logCount = 0;
@@ -362,8 +371,22 @@ export function renderExpedition(body: HTMLElement): void {
     ctx.font = `bold ${Math.max(9, cell * 0.45)}px monospace`;
     ctx.fillText("IN", ox + lv.entrance.x * cell + 1, oy + lv.entrance.y * cell + cell * 0.7);
 
-    const mk = exp && exp.phase !== "done" ? exp.waypoint : !exp ? marker : null;
-    if (mk) cross(ctx, ox + mk.x * cell + cell / 2, oy + mk.y * cell + cell / 2, cell * 0.38);
+    // Pins still to visit (a run in the field) or the route being planned.
+    const route: Pt[] = exp
+      ? exp.phase === "done" || exp.phase === "return"
+        ? []
+        : (exp.pins ?? [exp.waypoint]).filter((p) => exp.targets.some((t) => t.x === p.x && t.y === p.y))
+      : pins;
+    route.forEach((mk, i) => {
+      const cx = ox + mk.x * cell + cell / 2;
+      const cy = oy + mk.y * cell + cell / 2;
+      cross(ctx, cx, cy, cell * 0.38);
+      if (route.length > 1) {
+        ctx.fillStyle = "#f6f2dc";
+        ctx.font = `bold ${Math.max(9, cell * 0.5)}px monospace`;
+        ctx.fillText(String(i + 1), cx + cell * 0.4, cy - cell * 0.25);
+      }
+    });
 
     // Every crew in the field shows; the one you're listening to pulses red.
     for (const other of running(s)) {
@@ -399,7 +422,7 @@ export function renderExpedition(body: HTMLElement): void {
       ctx.fillStyle = "rgba(233,226,176,0.75)";
       ctx.font = `${12 * devicePixelRatio}px monospace`;
       ctx.textAlign = "center";
-      ctx.fillText("Unexplored. Click the map to drop a marker, then send a crew.", w / 2, h - 14 * devicePixelRatio);
+      ctx.fillText("Unexplored. Click the map to drop pins, then send a crew.", w / 2, h - 14 * devicePixelRatio);
       ctx.textAlign = "start";
     }
     ctx.fillStyle = "#e9e2b0";

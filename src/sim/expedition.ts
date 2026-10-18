@@ -21,7 +21,8 @@ export interface Expedition {
   levelId: string;
   crewIds: number[];
   leadId: number;
-  waypoint: Pt;
+  waypoint: Pt; // the last pin
+  pins?: Pt[]; // every pin dropped for this run, visited in order
   pos: Pt;
   phase: "in" | "return" | "done";
   targets: Pt[];
@@ -97,6 +98,7 @@ export function oddsWord(state: GameState, crewIds: number[]): string {
   return "Statistically brave";
 }
 
+export const MAX_PINS = 5;
 export const MAX_CREW = 4;
 export const CREW_SLOTS = BASE_CREW_SLOTS; // expeditions out at once before upgrades
 
@@ -110,7 +112,7 @@ export function suggestLead(crew: Worker[]): Worker {
 export function startExpedition(
   state: GameState,
   crewIds: number[],
-  marker: Pt,
+  marker: Pt | Pt[],
   leadId?: number,
   levelId = "level-0",
   gear: string[] = [],
@@ -121,7 +123,12 @@ export function startExpedition(
     .slice(0, MAX_CREW);
   if (!crew.length || running(state).length >= crewSlots(state) || !isUnlocked(state, levelId)) return null;
   const lv = levelOf(state, levelId);
-  const waypoint = nearestOpen(lv, marker);
+  const pins = (Array.isArray(marker) ? marker : [marker])
+    .slice(0, MAX_PINS)
+    .map((m) => nearestOpen(lv, m))
+    .filter((p, i, all) => all.findIndex((q) => q.x === p.x && q.y === p.y) === i);
+  if (!pins.length) return null;
+  const waypoint = pins[pins.length - 1];
   const lead = crew.find((w) => w.id === leadId) ?? suggestLead(crew);
   for (const w of crew) {
     w.status = "out";
@@ -133,9 +140,10 @@ export function startExpedition(
     crewIds: crew.map((w) => w.id),
     leadId: lead.id,
     waypoint,
+    pins,
     pos: { ...lv.entrance },
     phase: "in",
-    targets: [waypoint],
+    targets: pins.map((p) => ({ ...p })),
     entities: lv.spawns.map((s) => ({ id: s.id, pos: { ...s.at }, cooldown: 0, seen: false })),
     tick: 0,
     nextChatter: 6,
@@ -234,7 +242,7 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
       const item = ITEMS[lv.loot[lootIdx].itemId];
       exp.carried.push(item.id);
       say(exp, dice, crew, RADIO.LOOT, { item: item.name });
-    } else if (exp.phase === "in" && exp.waypoint.x === exp.pos.x && exp.waypoint.y === exp.pos.y) {
+    } else if (exp.phase === "in" && (exp.pins ?? [exp.waypoint]).some((p) => p.x === exp.pos.x && p.y === exp.pos.y)) {
       say(exp, dice, crew, RADIO.ARRIVE);
     }
     if (exp.phase === "in" && !exp.targets.length) turnBack(lv, exp);

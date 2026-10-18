@@ -19,7 +19,7 @@ export const TUTORIAL: TutorialStep[] = [
   },
   {
     title: "Send them into Level 0",
-    text: "Open the Facility Map, click somewhere in the dark to drop a marker, tick your hire and press send. Listen to the radio.",
+    text: "Open the Facility Map, click somewhere in the dark to drop a pin (you can drop up to five), tick your hire and press send. Listen to the radio.",
     icon: "map",
     done: (s) => s.expeditions.length > 0,
   },
