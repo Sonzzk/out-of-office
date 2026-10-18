@@ -23,7 +23,7 @@ function unlicensed(body: HTMLElement, name: string): void {
 export function apps(_state: GameState): DesktopApp[] {
   const art = "./art/icons/";
   return [
-    { id: "map", title: "Facility Map", icon: art + "U-map.png", w: 780, h: 500, render: renderExpedition },
+    { id: "map", title: "Facility Map", icon: art + "U-map.png", w: 900, h: 560, render: renderExpedition },
     { id: "inbox", title: "Memo Inbox", icon: art + "U-envelope.png", w: 560, h: 380, render: renderInbox },
     { id: "feeds", title: "Feeds Wall", icon: art + "U-bodycam.png", w: 420, h: 260, render: (b) => unlicensed(b, "FEEDS.EXE") },
     { id: "hr", title: "HR Roster", icon: art + "U-crew.png", w: 560, h: 520, render: renderHR },

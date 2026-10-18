@@ -16,6 +16,7 @@ import { makeRng } from "../sim/rng";
 import type { GameState } from "../sim/state";
 import { game, update, watch, type Topic } from "../store";
 import { art, esc } from "./dom";
+import { createBodycam, type Bodycam, type CamInput } from "./bodycam";
 
 // Facility Map: plan a run by picking a level, a crew and a marker,
 // then watch it play out on the same schematic with the radio log beside it.
@@ -36,6 +37,23 @@ export function renderExpedition(body: HTMLElement): void {
   let planning = false; // planning a second run while one is out
   let planLevel = "level-0";
   const packed = new Set<string>(); // gear for the next run
+  let cam: Bodycam | null = null;
+
+  // What the body camera needs to know about a run right now.
+  function camInput(exp: Expedition): CamInput {
+    const st = game();
+    const lead = st.crew.find((w) => w.id === exp.leadId) ?? st.crew.find((w) => exp.crewIds.includes(w.id));
+    return {
+      lv: levelOf(st, exp.levelId),
+      exp,
+      operator: lead?.name ?? "Crew",
+      day: st.day,
+      infection: st.infection,
+      taken: st.takenToday[exp.levelId] ?? [],
+      levelName: levelDef(exp.levelId).name,
+      depth: levelDef(exp.levelId).depth,
+    };
+  }
 
   // Runs still worth showing: out in the field, or finished with an unread debrief.
   const visible = (): Expedition[] => game().expeditions.filter((e) => !dismissed.has(e.id));
@@ -150,6 +168,7 @@ export function renderExpedition(body: HTMLElement): void {
   function renderSide(): void {
     const s = game();
     const exp = current();
+    body.classList.toggle("watching", !!exp);
     if (exp) return renderRun(exp);
     if (!canPlan()) {
       side.innerHTML = `${tabs()}<p class="dim">Both crews are out. Pick a run above to listen in.</p>`;
@@ -226,8 +245,9 @@ export function renderExpedition(body: HTMLElement): void {
           ${exp.result!.notes.map((n) => `<br>${esc(n)}`).join("")}</div>
           <button class="btn go" data-dismiss>Plan the next run</button>`
         : "";
-    side.innerHTML = `${tabs()}${head}<div class="radio inset" aria-live="polite"></div><div class="callbox"></div>${debrief}`;
+    side.innerHTML = `${tabs()}<canvas class="bodycam"></canvas><div class="callbox"></div>${head}<div class="radio inset" aria-live="polite"></div>${debrief}`;
     logCount = 0;
+    cam = createBodycam(side.querySelector<HTMLCanvasElement>("canvas.bodycam")!, camInput(exp));
     appendLog(exp);
     renderCall(exp);
   }
@@ -415,6 +435,7 @@ export function renderExpedition(body: HTMLElement): void {
     if (topic === "tick" && exp && side.querySelector(".radio") && !finished && shownTabs === wantTabs) {
       appendLog(exp);
       renderCall(exp);
+      cam?.update(camInput(exp));
     } else if (topic === "tick" && !exp && shownTabs === wantTabs) {
       // Planning: leave the form alone so checkboxes don't reset.
     } else renderSide();

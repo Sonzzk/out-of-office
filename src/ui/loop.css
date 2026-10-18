@@ -51,6 +51,7 @@
 .expo .mapwrap { flex: 1; min-width: 0; position: relative; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); }
 .expo canvas.map { position: absolute; inset: 0; cursor: crosshair; }
 .expo .side { width: 230px; flex: none; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+.expo.watching .side { width: 47%; }
 .expo .lvl { width: 100%; border: 2px solid var(--sh); }
 .expo .lvname { font-size: 11px; }
 .pick { display: flex; align-items: center; gap: 6px; padding: 2px 0; cursor: pointer; }
