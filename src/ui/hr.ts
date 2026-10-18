@@ -1,4 +1,5 @@
 import { LEVEL_XP, SKILL_LABEL, SKILLS, SOURCE_INFO } from "../data/crew";
+import { ODD_MOODS } from "../data/infection";
 import { hire, isVeteran, quirkDef, skill, type Worker } from "../sim/crew";
 import { infectionStage } from "../sim/infection";
 import { assign, contractPay, OVERTIME_PAY } from "../sim/office";
@@ -20,6 +21,14 @@ function quirkLines(w: Worker): string {
   const unknown = w.quirks.length - w.revealed.length;
   if (unknown > 0) known.push(`<div class="quirk dim">+${unknown} undisclosed. HR is still finding out.</div>`);
   return known.join("");
+}
+
+// Past stage 2 some coworkers start to go off. Which ones is fixed per worker and stage.
+function oddMood(w: Worker, stage: number): string {
+  if (stage < 3) return "";
+  const h = (w.id * 2654435761 + stage * 97) >>> 0;
+  if (h % 4 >= stage - 2 + 1) return "";
+  return `<div class="quirk warpline"><b>Off.</b> ${esc(ODD_MOODS[h % ODD_MOODS.length])}</div>`;
 }
 
 function xpBar(w: Worker): string {
@@ -83,7 +92,7 @@ export function renderHR(body: HTMLElement): void {
                     <span class="lv">Lv ${w.level}</span>${isVeteran(w) ? `<span class="badge">VETERAN</span>` : ""}
                     ${xpBar(w)}<span class="dim st">${statusText(w)}</span></div>
                   ${skillBars(w)}
-                  ${quirkLines(w)}
+                  ${quirkLines(w)}${oddMood(w, infectionStage(s))}
                   ${
                     w.status === "idle"
                       ? `<div class="jobs"><button class="btn" data-job="contract" data-worker="${w.id}" title="Safe work on the lit edge. Back tonight.">Safe contract +${money(contractPay(w))}</button>

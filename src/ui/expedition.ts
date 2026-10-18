@@ -9,7 +9,9 @@ import { indexEntry } from "../data/index";
 import { crewSlots } from "../sim/facilities";
 import { surveyed, isUnlocked } from "../sim/research";
 import { answerCall, callTicks, levelOf, MAX_CREW, oddsWord, running, startExpedition, suggestLead, type Expedition } from "../sim/expedition";
+import { infectionStage } from "../sim/infection";
 import { DARK, FLOOR, idx, type Pt } from "../sim/level";
+import { makeRng } from "../sim/rng";
 import { game, update, watch, type Topic } from "../store";
 import { art, esc } from "./dom";
 
@@ -287,6 +289,32 @@ export function renderExpedition(body: HTMLElement): void {
         ctx.fillStyle = c === FLOOR ? "#b9a94f" : c === DARK ? "#4d4622" : "#24210f";
         ctx.fillRect(px, py, cell - 1, cell - 1);
       }
+
+    // Infected office: a few explored rooms show up a second time where nothing was explored.
+    const stage = infectionStage(s);
+    if (stage >= 3) {
+      const rng = makeRng([...String(levelId)].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) + s.day * 17);
+      const seen: number[] = [];
+      fog.forEach((f, i) => f && lv.cells[i] === FLOOR && seen.push(i));
+      for (let n = 0; n < stage - 2 && seen.length; n++) {
+        const at = seen[Math.floor(rng() * seen.length)];
+        const sx = (at % lv.w) - 2;
+        const sy = Math.floor(at / lv.w) - 2;
+        const dx = Math.floor(rng() * Math.max(1, lv.w - 6));
+        const dy = Math.floor(rng() * Math.max(1, lv.h - 5));
+        for (let yy = 0; yy < 5; yy++)
+          for (let xx = 0; xx < 6; xx++) {
+            const fx = sx + xx;
+            const fy = sy + yy;
+            if (fx < 0 || fy < 0 || fx >= lv.w || fy >= lv.h) continue;
+            const from = fy * lv.w + fx;
+            const to = (dy + yy) * lv.w + dx + xx;
+            if (!fog[from] || fog[to] || lv.cells[from] !== FLOOR) continue;
+            ctx.fillStyle = "rgba(185,169,79,0.3)";
+            ctx.fillRect(ox + (dx + xx) * cell, oy + (dy + yy) * cell, cell - 1, cell - 1);
+          }
+      }
+    }
 
     // Loot the crews have seen and not picked up yet.
     lv.loot.forEach((l, i) => {
