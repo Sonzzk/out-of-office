@@ -1,5 +1,6 @@
 import { UPGRADES, UPKEEP_PER_LATE_TIER, UPKEEP_PER_TIER, upgradeDef } from "../data/upgrades";
 import type { GameState } from "./state";
+import { FACILITY_LINES } from "../data/radioFacilities";
 import { has } from "./projects";
 
 export const BASE_CREW_SLOTS = 2;
@@ -30,3 +31,13 @@ export const moraleBoost = (state: GameState) => Math.min(3, tier(state, "breakr
 export const freeFirstAid = (state: GameState) => tier(state, "breakroom") >= 4;
 export const upkeep = (state: GameState) =>
   UPGRADES.reduce((a, u) => a + Math.min(2, tier(state, u.id)) * UPKEEP_PER_TIER + Math.max(0, tier(state, u.id) - 2) * UPKEEP_PER_LATE_TIER, 0);
+
+// Radio lines from the facilities you own, heard from the tier that earns them.
+export function facilityLines(state: GameState): string[] {
+  const out: string[] = [];
+  for (const [id, byTier] of Object.entries(FACILITY_LINES)) {
+    const t = id === "floor2" ? (has(state, "floor2") ? 1 : 0) : tier(state, id);
+    out.push(...byTier.slice(0, t).flat());
+  }
+  return out;
+}

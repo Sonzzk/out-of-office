@@ -10,8 +10,9 @@ import { CHECKOUT_TICK, CHECKOUT_WARN, levelDef } from "../data/levels";
 import { PLAQUES, WIPE_MEMO } from "../data/memos";
 import * as RADIO from "../data/radio";
 import * as MORE from "../data/radioMore";
+import { SECURITY_HELD } from "../data/radioFacilities";
 import { gainXp, hasQuirk, quirkDef, revealQuirk, skill, type Worker } from "./crew";
-import { BASE_CREW_SLOTS, callWait, crewSlots, freeFirstAid, moraleBoost } from "./facilities";
+import { BASE_CREW_SLOTS, callWait, crewSlots, facilityLines, freeFirstAid, moraleBoost, tier } from "./facilities";
 import { DARK, dist, findPath, generateLevel, idx, nearestOpen, neighbors, WALL, type Level, type Pt } from "./level";
 import { addHeat, addInfection, HEAT_PER_DEATH, HEAT_PER_WIPE } from "./office";
 import { deathHeat, deathInfection } from "./projects";
@@ -229,6 +230,7 @@ function ambientPool(state: GameState, exp: Expedition, crew: Worker[]): string[
   for (const j of jokes) pool.push(...j.lines);
   if (exp.encounters > 0 || exp.log.some((l) => /checked in|fell behind|lost /.test(l))) pool.push(...MORE.TENSE, ...MORE.TENSE);
   if (exp.carried.length) pool.push(...MORE.CARRYING, ...MORE.CARRYING);
+  pool.push(...facilityLines(state));
   return pool;
 }
 
@@ -793,6 +795,7 @@ function finish(state: GameState, exp: Expedition): void {
       body: fill(tpl.body, { name: w.name, words: w.lastWords ?? "..." }),
     });
   }
+  if (dead.length && tier(state, "security") > 0) notes.push(SECURITY_HELD);
   addHeat(state, deathHeat(state, dead.length * HEAT_PER_DEATH) + (alive.length ? 0 : HEAT_PER_WIPE));
   addInfection(state, dead.length * deathInfection(state));
   if (!alive.length) addMemo(state, WIPE_MEMO);
