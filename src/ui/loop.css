@@ -72,3 +72,19 @@
   .inbox { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   .inbox .list { max-height: 120px; }
 }
+
+/* Crew milestone */
+.roster { display: grid; gap: 6px; }
+.crewrow { display: flex; gap: 8px; padding: 6px; }
+.crewrow > img { width: 48px; height: 60px; object-fit: cover; flex: none; border: 2px solid var(--sh); }
+.crewrow .info { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.crewrow .top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.crewrow .nm { font-weight: bold; }
+.crewrow .st { margin-left: auto; }
+.lv { font-size: 10px; padding: 0 4px; border: 1px solid var(--sh); }
+.badge { font-size: 9px; font-weight: bold; letter-spacing: .08em; padding: 1px 4px; background: var(--title); color: #efe9b4; }
+.xp { display: inline-block; width: 60px; height: 7px; border: 1px solid var(--sh); background: var(--paper); }
+.xp i { display: block; height: 100%; background: var(--title); }
+.pick { justify-content: space-between; }
+.pick label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.pick .lead { font-size: 10px; gap: 2px; }

@@ -26,7 +26,7 @@ await page.screenshot({ path: "shots/loop-1-boot.png" });
 await page.click('[data-open="hr"]');
 for (let i = 0; i < 2; i++) await page.locator("[data-hire]:not([disabled])").first().click();
 await page.screenshot({ path: "shots/loop-2-hired.png" });
-const crew = await page.locator(".hr .roster .row").count();
+const crew = await page.locator(".hr .roster .crewrow").count();
 console.log("crew hired:", crew);
 
 // Plan: pick everyone, drop a marker on the far right of the map, send.
@@ -53,6 +53,9 @@ const sellable = await ledger.locator("[data-sell]").count();
 for (let i = 0; i < sellable; i++) await ledger.locator("[data-sell]").first().click();
 console.log("cash:", before, "->", await ledger.locator(".cash b").textContent(), `(${sellable} sold)`);
 await page.screenshot({ path: "shots/loop-6-ledger.png" });
+await page.click('[data-open="hr"]');
+await page.locator('.win[data-app="hr"] .tb').click();
+await page.screenshot({ path: "shots/loop-8-crew.png" });
 await page.click('[data-open="inbox"]');
 await page.screenshot({ path: "shots/loop-7-inbox.png" });
 
@@ -61,7 +64,7 @@ await page.goto(`http://localhost:5198/?fast`);
 await page.waitForSelector("#desk .win, [data-clockin]");
 if (await page.locator("[data-clockin]").count()) await page.click("[data-clockin]");
 await page.click('[data-open="hr"]');
-console.log("crew after reload:", await page.locator(".hr .roster .row").count());
+console.log("crew after reload:", await page.locator(".hr .roster .crewrow").count());
 
 await browser.close();
 await server.close();

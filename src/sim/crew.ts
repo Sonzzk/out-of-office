@@ -1,4 +1,4 @@
-import { CLONE_PORTRAITS, PEOPLE, QUIRKS, SKILLS, type Skill, type Source } from "../data/crew";
+import { CLONE_PORTRAITS, LEVEL_XP, PEOPLE, QUIRKS, SKILLS, type Skill, type Source } from "../data/crew";
 import { Dice } from "./rng";
 import type { GameState } from "./state";
 
@@ -9,21 +9,29 @@ export interface Worker {
   source: Source;
   cost: number; // one-off hiring fee (or bribe)
   skills: Record<Skill, number>; // 0..6
-  quirk: string;
+  quirks: string[]; // [visible, hidden]
+  revealed: string[]; // quirks HR knows about
   status: "idle" | "out" | "dead";
   runs: number;
+  xp: number;
+  level: number;
   diedOnDay?: number;
   lastWords?: string;
 }
 
-export function quirkOf(w: Worker) {
-  return QUIRKS.find((q) => q.id === w.quirk)!;
+export function quirkDef(id: string) {
+  return QUIRKS.find((q) => q.id === id)!;
 }
 
+export const hasQuirk = (w: Worker, id: string) => w.quirks.includes(id);
+
+// Hidden quirks still change skills; HR just can't see why.
 export function skill(w: Worker, s: Skill): number {
-  const mod = quirkOf(w).mods?.[s] ?? 0;
+  const mod = w.quirks.reduce((sum, q) => sum + (quirkDef(q).mods?.[s] ?? 0), 0);
   return Math.max(0, Math.min(6, w.skills[s] + mod));
 }
+
+export const isVeteran = (w: Worker) => w.level >= 3;
 
 const SOURCE_STATS: Record<Source, { weight: number; cost: [number, number]; skill: [number, number] }> = {
   desperate: { weight: 5, cost: [150, 300], skill: [1, 4] },
@@ -54,6 +62,8 @@ export function generatePool(state: GameState): Worker[] {
     }
     taken.add(name);
     const skills = Object.fromEntries(SKILLS.map((s) => [s, dice.range(...stats.skill)])) as Record<Skill, number>;
+    const visible = dice.pick(QUIRKS).id;
+    const hidden = dice.pick(QUIRKS.filter((q) => q.reveal && q.id !== visible)).id;
     pool.push({
       id: state.nextId++,
       name,
@@ -61,9 +71,12 @@ export function generatePool(state: GameState): Worker[] {
       source,
       cost: Math.round(dice.range(...stats.cost) / 10) * 10,
       skills,
-      quirk: dice.pick(QUIRKS).id,
+      quirks: [visible, hidden],
+      revealed: [visible],
       status: "idle",
       runs: 0,
+      xp: 0,
+      level: 1,
     });
   }
   return pool;
@@ -76,5 +89,28 @@ export function hire(state: GameState, workerId: number): boolean {
   state.ledger.unshift({ day: state.day, text: `Hired ${w.name} (${w.source === "prisoner" ? "bribe" : "fee"})`, amount: -w.cost });
   state.pool = state.pool.filter((p) => p.id !== workerId);
   state.crew.push(w);
+  return true;
+}
+
+// Survivors earn xp; each new level raises one skill. Returns what changed,
+// for the debrief.
+export function gainXp(w: Worker, amount: number, dice: Dice): string[] {
+  const notes: string[] = [];
+  w.xp += amount;
+  while (w.level < LEVEL_XP.length && w.xp >= LEVEL_XP[w.level]) {
+    w.level++;
+    const open = SKILLS.filter((s) => w.skills[s] < 6);
+    if (open.length) {
+      const s = dice.pick(open);
+      w.skills[s]++;
+      notes.push(`${w.name} reached level ${w.level} (+1 ${s === "nav" ? "Navigation" : s[0].toUpperCase() + s.slice(1)})${w.level === 3 ? " and is now a veteran" : ""}.`);
+    }
+  }
+  return notes;
+}
+
+export function revealQuirk(w: Worker, id: string): boolean {
+  if (!hasQuirk(w, id) || w.revealed.includes(id)) return false;
+  w.revealed.push(id);
   return true;
 }

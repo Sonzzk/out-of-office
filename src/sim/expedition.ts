@@ -1,7 +1,7 @@
 import { ITEMS } from "../data/items";
 import { PLAQUES, WIPE_MEMO } from "../data/memos";
 import * as RADIO from "../data/radio";
-import { skill, type Worker } from "./crew";
+import { gainXp, hasQuirk, quirkDef, revealQuirk, skill, type Worker } from "./crew";
 import { DARK, dist, findPath, generateLevel, idx, nearestOpen, neighbors, type Level, type Pt } from "./level";
 import { Dice } from "./rng";
 import { addMemo, fill, type GameState } from "./state";
@@ -24,7 +24,8 @@ export interface Expedition {
   dice: number;
   carried: string[];
   log: string[];
-  result?: { survivors: number; dead: string[]; loot: string[] };
+  encounters: number;
+  result?: { survivors: number; dead: string[]; loot: string[]; notes: string[] };
 }
 
 const VISION = 3;
@@ -56,12 +57,22 @@ export function oddsWord(state: GameState, crewIds: number[]): string {
   return "Statistically brave";
 }
 
-export function startExpedition(state: GameState, crewIds: number[], marker: Pt): Expedition | null {
-  const crew = crewIds.map((id) => state.crew.find((w) => w.id === id)).filter((w): w is Worker => !!w && w.status === "idle");
+export const MAX_CREW = 4;
+
+// Default team lead: veterans first, then whoever has the best morale.
+export function suggestLead(crew: Worker[]): Worker {
+  return [...crew].sort((a, b) => b.level - a.level || skill(b, "morale") - skill(a, "morale"))[0];
+}
+
+export function startExpedition(state: GameState, crewIds: number[], marker: Pt, leadId?: number): Expedition | null {
+  const crew = crewIds
+    .map((id) => state.crew.find((w) => w.id === id))
+    .filter((w): w is Worker => !!w && w.status === "idle")
+    .slice(0, MAX_CREW);
   if (!crew.length) return null;
   const lv = level0(state);
   const waypoint = nearestOpen(lv, marker);
-  const lead = [...crew].sort((a, b) => skill(b, "morale") - skill(a, "morale"))[0];
+  const lead = crew.find((w) => w.id === leadId) ?? suggestLead(crew);
   for (const w of crew) w.status = "out";
   const exp: Expedition = {
     id: state.nextId++,
@@ -79,6 +90,7 @@ export function startExpedition(state: GameState, crewIds: number[], marker: Pt)
     dice: (state.seed ^ Math.imul(state.nextId * 97 + state.day, 2654435761)) >>> 0,
     carried: [],
     log: [`${lead.name}: Team lead here. Going in.`],
+    encounters: 0,
   };
   reveal(state, lv, exp.pos);
   state.expeditions.push(exp);
@@ -96,7 +108,9 @@ function say(exp: Expedition, dice: Dice, crew: Worker[], lines: string[], extra
   if (!crew.length) return;
   const speaker = dice.pick(crew);
   const other = crew.length > 1 ? dice.pick(crew.filter((w) => w !== speaker)) : speaker;
-  exp.log.push(fill(dice.pick(lines), { n: first(speaker), m: first(other), ...extra }));
+  // Someone alone can't talk about a teammate.
+  const usable = other === speaker && !extra.m ? lines.filter((l) => !l.includes("{m}")) : lines;
+  exp.log.push(fill(dice.pick(usable.length ? usable : lines), { n: first(speaker), m: first(other), ...extra }));
 }
 
 const first = (w: Worker) => (w.name.startsWith("CLONE") ? w.name : w.name.split(" ")[0]);
@@ -109,7 +123,10 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
   const crew = members(state, exp);
   exp.tick++;
 
-  const avgNav = crew.reduce((s, w) => s + skill(w, "nav"), 0) / Math.max(1, crew.length);
+  // The team lead's sense of direction counts double.
+  const lead = crew.find((w) => w.id === exp.leadId);
+  const navSum = crew.reduce((s, w) => s + skill(w, "nav"), 0) + (lead ? skill(lead, "nav") : 0);
+  const avgNav = navSum / Math.max(1, crew.length + (lead ? 1 : 0));
   const stalled = dice.chance(Math.max(0, 0.16 - avgNav * 0.03));
 
   // Spot loot nearby on the way in and detour for it.
@@ -154,7 +171,9 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
 
   // An encounter above can end the run.
   if (exp.tick >= exp.nextChatter && (exp.phase as Expedition["phase"]) !== "done") {
-    say(exp, dice, crew, RADIO.AMBIENT);
+    const talker = crew.find((w) => hasQuirk(w, "walls"));
+    if (talker && dice.chance(0.25)) revealLine(exp, talker, "walls");
+    else say(exp, dice, crew, RADIO.AMBIENT);
     exp.nextChatter = exp.tick + dice.range(9, 15);
   }
   exp.dice = dice.state;
@@ -171,7 +190,8 @@ function moveEntity(state: GameState, lv: Level, exp: Expedition, dice: Dice, cr
     exp.entitySeen = false;
     return;
   }
-  const near = dist(exp.entity, exp.pos) <= 5;
+  const whistler = crew.find((w) => hasQuirk(w, "whistler"));
+  const near = dist(exp.entity, exp.pos) <= (whistler ? 7 : 5);
   const inDark = lv.cells[idx(lv, exp.pos)] === DARK || lv.cells[idx(lv, exp.entity)] === DARK;
   if (near && inDark) {
     const step = findPath(lv, exp.entity, exp.pos)[0];
@@ -184,14 +204,28 @@ function moveEntity(state: GameState, lv: Level, exp: Expedition, dice: Dice, cr
   }
   const wasSeen = exp.entitySeen;
   exp.entitySeen = dist(exp.entity, exp.pos) <= VISION;
-  if (exp.entitySeen && !wasSeen) say(exp, dice, crew, RADIO.SPOTTED);
+  if (exp.entitySeen && !wasSeen) {
+    say(exp, dice, crew, RADIO.SPOTTED);
+    if (whistler) revealLine(exp, whistler, "whistler");
+  }
   if (dist(exp.entity, exp.pos) <= 1) encounter(state, lv, exp, dice, crew);
 }
 
 function encounter(state: GameState, lv: Level, exp: Expedition, dice: Dice, crew: Worker[]): void {
   // Each crew member tries to slip away; the Smiler takes at most one.
+  exp.encounters++;
   const order = [...crew].sort(() => dice.next() - 0.5);
-  const victim = order.find((w) => dice.chance(0.5 - skill(w, "stealth") * 0.075));
+  for (const w of crew) if (hasQuirk(w, "coward") && crew.length > 1) revealLine(exp, w, "coward");
+  const victim = order.find((w) => {
+    if (hasQuirk(w, "coward") && crew.length > 1) return false;
+    const p = 0.5 - skill(w, "stealth") * 0.075;
+    const roll = dice.next();
+    if (hasQuirk(w, "lucky") && roll < p && roll >= p / 2) {
+      revealLine(exp, w, "lucky");
+      return false;
+    }
+    return roll < p;
+  });
   exp.entityCooldown = 14;
   const darkCells: Pt[] = [];
   lv.cells.forEach((c, i) => c === DARK && darkCells.push({ x: i % lv.w, y: Math.floor(i / lv.w) }));
@@ -220,7 +254,10 @@ function encounter(state: GameState, lv: Level, exp: Expedition, dice: Dice, cre
   say(exp, dice, survivors, RADIO.DEATH, { m: first(victim) });
   const lead = survivors.find((w) => w.id === exp.leadId) ?? survivors[0];
   exp.leadId = lead.id;
-  if (exp.phase === "in" && dice.chance(0.65 - skill(lead, "morale") * 0.1)) {
+  if (exp.phase !== "in") return;
+  if (hasQuirk(lead, "calm")) return revealLine(exp, lead, "calm");
+  if (dice.chance(0.65 - skill(lead, "morale") * 0.1)) {
+    if (hasQuirk(lead, "debts") && !exp.carried.length) return revealLine(exp, lead, "debts");
     exp.log.push(fill(dice.pick(RADIO.RETREAT), { n: first(lead) }));
     turnBack(lv, exp);
   }
@@ -231,13 +268,27 @@ function finish(state: GameState, exp: Expedition): void {
   const all = exp.crewIds.map((id) => state.crew.find((w) => w.id === id)!);
   const alive = all.filter((w) => w.status === "out");
   const dead = all.filter((w) => w.status === "dead" && w.diedOnDay === state.day);
+  const dice = new Dice(exp.dice);
+  const notes: string[] = [];
+  let loot = alive.length ? [...exp.carried] : [];
+  const pocketer = alive.find((w) => hasQuirk(w, "pockets"));
+  if (pocketer && loot.length && dice.chance(0.5)) {
+    const kept = loot.splice(dice.int(loot.length), 1)[0];
+    revealLine(exp, pocketer, "pockets");
+    notes.push(`${ITEMS[kept].name} went missing. ${pocketer.name} says they never saw it.`);
+  }
   for (const w of alive) {
     w.status = "idle";
     w.runs++;
+    notes.push(...gainXp(w, 1 + (loot.length ? 1 : 0) + Math.min(exp.encounters, 2), dice));
+    // After three runs HR works out what the file left out.
+    const hidden = w.quirks.find((q) => !w.revealed.includes(q));
+    if (hidden && w.runs >= 3 && revealQuirk(w, hidden)) notes.push(`HR has learned something about ${w.name}: ${quirkDef(hidden).name}.`);
   }
-  const loot = alive.length ? exp.carried : [];
+  notes.push(...exp.log.filter((l) => l.startsWith("HR learned something")));
+  exp.dice = dice.state;
   for (const itemId of loot) state.loot.push({ id: state.nextId++, itemId, foundBy: alive[0].name });
-  exp.result = { survivors: alive.length, dead: dead.map((w) => w.name), loot };
+  exp.result = { survivors: alive.length, dead: dead.map((w) => w.name), loot, notes };
   for (const w of dead) {
     const plaque = state.memos.length % PLAQUES.length;
     const tpl = PLAQUES[plaque];
@@ -253,4 +304,12 @@ function finish(state: GameState, exp: Expedition): void {
 // The finished expedition stays visible as a debrief until the next one starts.
 export function activeExpedition(state: GameState): Expedition | undefined {
   return state.expeditions[state.expeditions.length - 1];
+}
+
+// A hidden quirk shows itself: say it on the radio and tell HR.
+function revealLine(exp: Expedition, w: Worker, id: string): void {
+  if (!revealQuirk(w, id)) return;
+  const q = quirkDef(id);
+  exp.log.push(fill(q.reveal ?? "{n} is acting strange.", { n: first(w) }));
+  exp.log.push(`HR learned something about ${w.name}: ${q.name}.`);
 }
