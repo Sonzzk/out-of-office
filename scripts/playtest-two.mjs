@@ -58,10 +58,13 @@ for (let i = 0; i < 300 && !answered; i++) {
   const ring = map.locator(".runtabs .tab:has(.ring)");
   if (await ring.count()) {
     await ring.first().click();
-    await page.screenshot({ path: "shots/two-2-call.png" });
-    console.log("call:", (await map.locator(".radio p").last().textContent()).trim());
-    await map.locator("[data-answer]").first().click();
-    answered = true;
+    // The call can run out while we switch tabs; then wait for the next one.
+    const button = map.locator("[data-answer]").first();
+    if (await button.count()) {
+      await page.screenshot({ path: "shots/two-2-call.png" });
+      console.log("call:", (await map.locator(".radio p").last().textContent()).trim());
+      answered = await button.click({ timeout: 2000 }).then(() => true, () => false);
+    }
   }
   if (!(await map.locator(".runtabs").textContent()).includes("out")) break;
   await page.waitForTimeout(20);

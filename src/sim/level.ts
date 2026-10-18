@@ -1,3 +1,4 @@
+import { entityDef } from "../data/entities";
 import { LEVELS, type LevelDef } from "../data/levels";
 import { Dice } from "./rng";
 
@@ -60,12 +61,14 @@ export function generateLevel(seed: number, def: LevelDef = LEVELS[0], w = 30, h
     if (!loot.some((l) => l.at.x === at.x && l.at.y === at.y)) loot.push({ at, itemId: dice.pick(pool) });
   }
 
-  // Smilers start in the dark, Hounds in the lit halls, everything else anywhere far.
+  // Dark hunters start in the dark, lit hunters in the lit halls, the rest anywhere far.
   const darkCells = floor.filter((p) => cells[p.y * w + p.x] === DARK);
   const lit = far.filter((p) => cells[p.y * w + p.x] === FLOOR && dist(p, entrance) > 10);
   const spawns = def.entities.map((id) => ({
     id,
-    at: id === "smiler" ? dice.pick(darkCells.length ? darkCells : far) : id === "hound" ? dice.pick(lit.length ? lit : far) : dice.pick(far),
+    at: ((moves) => (moves === "dark" ? dice.pick(darkCells.length ? darkCells : far) : moves === "lit" ? dice.pick(lit.length ? lit : far) : dice.pick(far)))(
+      entityDef(id).moves,
+    ),
   }));
   const entity = spawns.find((s) => s.id === "smiler")?.at ?? spawns[0].at;
   return { w, h, cells, entrance, loot, entity, spawns };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HOUND_DEATH } from "../src/data/radio";
+import { entityDef } from "../src/data/entities";
 import { hire, type Worker } from "../src/sim/crew";
 import { endDay, wage } from "../src/sim/economy";
 import { level0, startExpedition, stepExpedition } from "../src/sim/expedition";
@@ -56,7 +56,8 @@ describe("Index and economy", () => {
       const exp = run(s, crew.map((w) => w.id), { x: 27, y: 15 });
       const alive = exp.crewIds.filter((id) => s.crew.find((w) => w.id === id)!.status !== "dead").length;
       // Once the group drops below three the Hound may strike, so only check full groups.
-      if (alive === 3) expect(exp.log.some((l) => HOUND_DEATH.some((h) => l.endsWith(h.slice(4))))).toBe(false);
+      const houndLine = entityDef("hound").outcome.slice(4).replace(/\{m\}.*/, "");
+      if (alive === 3) expect(exp.log.some((l) => l.includes(houndLine))).toBe(false);
     }
   });
 
@@ -67,13 +68,13 @@ describe("Index and economy", () => {
     expect(startResearch(s, 901)).toBe(false); // one bench
     endDay(s);
     expect(stageOf(s, "hound")).toBe(2);
-    expect(dataPrice(s, "hound")).toBe(200);
-    expect(sellData(s, "hound")).toBe(200);
+    expect(dataPrice(s, "hound")).toBe(220);
+    expect(sellData(s, "hound")).toBe(220);
     expect(dataPrice(s, "hound")).toBe(0); // once per stage
     expect(startResearch(s, 901)).toBe(true);
     endDay(s);
     expect(stageOf(s, "hound")).toBe(3);
-    expect(dataPrice(s, "hound")).toBe(300); // only the difference
+    expect(dataPrice(s, "hound")).toBe(330); // only the difference
   });
 
   it("documents an item after three come home, and Level 0 by surveying it", () => {

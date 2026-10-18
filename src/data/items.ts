@@ -1,3 +1,5 @@
+import { ENTITIES } from "./entities";
+
 // Loot that can turn up on Level 0. Art lives in public/art/items.
 export interface ItemDef {
   id: string;
@@ -25,8 +27,11 @@ export const ITEMS: Record<string, ItemDef> = {
   "deuclidator": { id: "deuclidator", name: "Deuclidator", art: "I14-deuclidator.png", value: 700, rarity: 1 },
   "dumb-gum": { id: "dumb-gum", name: "Dumb Gum", art: "I15-dumb-gum.png", value: 160, rarity: 1 },
   "ghost-light": { id: "ghost-light", name: "Ghost Light", art: "I16-ghost-light.png", value: 420, rarity: 1 },
-  // Samples come off entities a crew survived. Art is the generic sample jar.
-  "sample-smiler": { id: "sample-smiler", name: "Smiler Residue", art: "../icons/U-sample-jar.png", value: 320, rarity: 0, sampleOf: "smiler" },
-  "sample-hound": { id: "sample-hound", name: "Hound Tooth", art: "../icons/U-sample-jar.png", value: 260, rarity: 0, sampleOf: "hound" },
-  "sample-faceling": { id: "sample-faceling", name: "Faceling Skin Flake", art: "../icons/U-sample-jar.png", value: 150, rarity: 0, sampleOf: "faceling" },
+  // Samples come off entities a crew survived, see entities.ts.
+  ...Object.fromEntries(
+    ENTITIES.filter((e) => e.sample > 0).map((e) => [
+      `sample-${e.id}`,
+      { id: `sample-${e.id}`, name: e.sampleName, art: "../icons/U-sample-jar.png", value: e.sampleValue, rarity: 0, sampleOf: e.id },
+    ]),
+  ),
 };

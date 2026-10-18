@@ -1,5 +1,7 @@
 import { CALL_OUTCOMES, CALL_TICKS, CALL_TIMEOUT, CALLS, VENDING_PRICE, type CallDef } from "../data/calls";
+import { entityDef } from "../data/entities";
 import { INFECTED_RADIO } from "../data/infection";
+import { GEAR, gearDef } from "../data/gear";
 import { ITEMS } from "../data/items";
 import { CHECKOUT_TICK, CHECKOUT_WARN, levelDef } from "../data/levels";
 import { PLAQUES, WIPE_MEMO } from "../data/memos";
@@ -30,6 +32,9 @@ export interface Expedition {
   log: string[];
   encounters: number;
   call?: { id: string; asked: number; m?: number }; // a question for the office, waiting for an answer
+  gear: string[]; // bought for this run
+  used: string[]; // gear already used up
+  warned?: boolean; // a Warning Kite has the crew's back for one encounter
   callsMade: number;
   result?: { survivors: number; dead: string[]; loot: string[]; notes: string[] };
 }
@@ -103,6 +108,7 @@ export function startExpedition(
   marker: Pt,
   leadId?: number,
   levelId = "level-0",
+  gear: string[] = [],
 ): Expedition | null {
   const crew = crewIds
     .map((id) => state.crew.find((w) => w.id === id))
@@ -130,7 +136,14 @@ export function startExpedition(
     log: [`${lead.name}: Team lead here. Going in.`],
     encounters: 0,
     callsMade: 0,
+    gear: affordable(state, gear),
+    used: [],
   };
+  // Gear is paid for when the crew sets out.
+  for (const id of exp.gear) {
+    state.cash -= gearDef(id).cost;
+    state.ledger.unshift({ day: state.day, text: `Gear: ${gearDef(id).name}`, amount: -gearDef(id).cost });
+  }
   reveal(state, lv, levelId, exp.pos);
   state.expeditions.push(exp);
   return exp;
@@ -170,7 +183,8 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
   const avgNav = navSum / Math.max(1, crew.length + (lead ? 1 : 0));
   // Once Level 0 is mastered, everyone knows the way.
   const mapBonus = isMastered(state, exp.levelId) ? 1 : 0;
-  const stalled = dice.chance(Math.max(0, 0.16 - (avgNav + mapBonus) * 0.03));
+  const rope = exp.gear.includes("rope") ? 0.5 : 1;
+  const stalled = dice.chance(Math.max(0, 0.16 - (avgNav + mapBonus) * 0.03) * rope);
 
   // Spot loot nearby on the way in and detour for it.
   if (exp.phase === "in") {
@@ -183,7 +197,7 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
   maybeCall(state, exp, dice, crew);
   if (exp.call) {
     // Waiting on the office. The crew holds still; the level doesn't.
-    if (exp.tick - exp.call.asked >= CALL_TICKS) {
+    if (exp.tick - exp.call.asked >= callTicks(exp)) {
       const lead = crew.find((w) => w.id === exp.leadId) ?? crew[0];
       exp.log.push(fill(CALL_TIMEOUT, { n: first(lead) }));
       resolveCall(state, exp, callDef(exp.call.id).fallback, dice);
@@ -195,7 +209,8 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
   } else if (dice.chance(0.2)) {
     say(exp, dice, crew, RADIO.LOST);
   }
-  reveal(state, lv, exp.levelId, exp.pos);
+  const lamp = exp.gear.includes("flashlight") && lv.cells[idx(lv, exp.pos)] === DARK ? 2 : undefined;
+  reveal(state, lv, exp.levelId, exp.pos, lamp);
 
   // Arrived somewhere?
   const target = exp.targets[0];
@@ -268,40 +283,38 @@ function moveEntity(state: GameState, lv: Level, exp: Expedition, r: Roamer, dic
     r.seen = false;
     return;
   }
+  const def = entityDef(r.id);
   const whistler = crew.find((w) => hasQuirk(w, "whistler"));
-  const d = dist(r.pos, exp.pos);
+  const near = def.sense > 0 && dist(r.pos, exp.pos) <= def.sense + (whistler ? 2 : 0);
   const options = neighbors(lv, r.pos);
   const dark = (p: Pt) => lv.cells[idx(lv, p)] === DARK;
   const chase = () => {
     const step = findPath(lv, r.pos, exp.pos)[0];
-    if (step) r.pos = step;
+    if (step && dice.chance(def.speed)) r.pos = step;
   };
-  if (r.id === "smiler") {
+  const wander = (prefer?: (p: Pt) => boolean, bias = 1) => {
+    const liked = prefer ? options.filter(prefer) : options;
+    if (options.length) r.pos = dice.pick(liked.length && dice.chance(bias) ? liked : options);
+  };
+  if (def.moves === "dark") {
     // Only hunts when someone is in the dark. Lit halls are safe from it.
-    if (d <= (whistler ? 7 : 5) && (dark(exp.pos) || dark(r.pos))) dice.chance(0.7) && chase();
-    else if (dice.chance(0.5)) {
-      const unlit = options.filter(dark);
-      r.pos = dice.pick(unlit.length && dice.chance(0.8) ? unlit : options);
-    }
-  } else if (r.id === "hound") {
-    // Hunts by sound anywhere, keeps to the lit halls when wandering.
-    if (d <= (whistler ? 6 : 4)) dice.chance(0.6) && chase();
-    else if (dice.chance(0.6)) {
-      const lit = options.filter((p) => !dark(p));
-      r.pos = dice.pick(lit.length ? lit : options);
-    }
-  } else if (dice.chance(0.35)) {
-    // Facelings just wander, late for a meeting.
-    r.pos = dice.pick(options);
-  }
+    if (near && (dark(exp.pos) || dark(r.pos))) chase();
+    else if (dice.chance(0.5)) wander(dark, 0.8);
+  } else if (def.moves === "lit") {
+    if (near) chase();
+    else if (dice.chance(0.6)) wander((p) => !dark(p));
+  } else if (def.moves === "any") {
+    if (near) chase();
+    else if (dice.chance(0.5)) wander();
+  } else if (def.moves === "wander" && dice.chance(def.speed)) wander();
 
   const wasSeen = r.seen;
   r.seen = dist(r.pos, exp.pos) <= VISION;
   if (r.seen && !wasSeen) {
-    say(exp, dice, crew, r.id === "hound" ? RADIO.SPOTTED_HOUND : r.id === "faceling" ? RADIO.SPOTTED_FACELING : RADIO.SPOTTED);
+    say(exp, dice, crew, def.spotted, { boss: state.bossName });
     const note = crew.length ? learn(state, r.id, 1, crew[0].name) : null;
     if (note) exp.log.push(note);
-    if (whistler && r.id !== "faceling") revealLine(exp, whistler, "whistler");
+    if (whistler && def.sense > 0) revealLine(exp, whistler, "whistler");
   }
   if (dist(r.pos, exp.pos) <= 1) encounter(state, lv, exp, r, dice, crew);
 }
@@ -310,51 +323,148 @@ function moveEntity(state: GameState, lv: Level, exp: Expedition, r: Roamer, dic
 function sendAway(lv: Level, exp: Expedition, r: Roamer, dice: Dice): void {
   r.cooldown = 14;
   r.seen = false;
-  const spawn = lv.spawns.find((s) => s.id === r.id)!.at;
+  const def = entityDef(r.id);
+  if (def.moves === "still") return; // it stays where it is; the crew moves on
+  const spawn = lv.spawns.find((s) => s.id === r.id)?.at ?? lv.entrance;
   const open: Pt[] = [];
   lv.cells.forEach((c, i) => {
-    if (c !== WALL && (r.id !== "smiler" || c === DARK)) open.push({ x: i % lv.w, y: Math.floor(i / lv.w) });
+    if (c !== WALL && (def.moves !== "dark" || c === DARK)) open.push({ x: i % lv.w, y: Math.floor(i / lv.w) });
   });
   const far = open.filter((p) => dist(p, exp.pos) > 8);
   r.pos = far.length ? dice.pick(far) : { ...spawn };
 }
 
-function encounter(state: GameState, lv: Level, exp: Expedition, r: Roamer, dice: Dice, crew: Worker[]): void {
+// Only gear that exists and that the company can pay for goes along.
+function affordable(state: GameState, gear: string[]): string[] {
+  let budget = state.cash;
+  return gear.filter((id) => {
+    const def = GEAR.find((d) => d.id === id);
+    if (!def || def.cost > budget) return false;
+    budget -= def.cost;
+    return true;
+  });
+}
+
+const useGear = (exp: Expedition, id: string) => {
+  if (!exp.gear.includes(id) || exp.used.includes(id)) return false;
+  exp.used.push(id);
+  return true;
+};
+
+export function encounter(state: GameState, lv: Level, exp: Expedition, r: Roamer, dice: Dice, crew: Worker[]): void {
   exp.encounters++;
   sendAway(lv, exp, r, dice);
-  if (r.id === "faceling") return facelingEncounter(state, lv, exp, dice, crew);
+  const def = entityDef(r.id);
+  const mastered = isMastered(state, r.id);
+  const depthMult = 1 + levelDef(exp.levelId).depth * 0.08; // deeper is deadlier
+  const lead = crew.find((w) => w.id === exp.leadId) ?? crew[0];
+  const vars = { boss: state.bossName };
+  const line = (text: string, m?: Worker) => exp.log.push(fill(text, { n: first(lead), m: m ? first(m) : first(lead), ...vars }));
+  const passed = () => {
+    say(exp, dice, crew, [def.passed], vars);
+    survived(state, exp, r, dice, crew);
+  };
 
-  // The Hound won't take on a group.
-  if (r.id === "hound" && crew.length >= (isMastered(state, "hound") ? 2 : 3)) {
-    say(exp, dice, crew, RADIO.HOUND_BACKS_OFF);
-    return survived(state, exp, r, dice, crew);
-  }
-
-  // Each crew member tries to slip away; the entity takes at most one.
-  const order = [...crew].sort(() => dice.next() - 0.5);
-  for (const w of crew) if (hasQuirk(w, "coward") && crew.length > 1) revealLine(exp, w, "coward");
-  const victim = order.find((w) => {
-    if (hasQuirk(w, "coward") && crew.length > 1) return false;
-    let p = r.id === "hound" ? 0.55 - skill(w, "stealth") * 0.06 : 0.5 - skill(w, "stealth") * 0.075;
-    if (r.id === "smiler" && isMastered(state, "smiler")) p /= 2;
-    p *= 1 + levelDef(exp.levelId).depth * 0.08; // deeper is deadlier
-    const roll = dice.next();
-    if (hasQuirk(w, "lucky") && roll < p && roll >= p / 2) {
-      revealLine(exp, w, "lucky");
-      return false;
+  switch (def.effect) {
+    case "panic": {
+      // Harmless, but crews who don't know that panic.
+      const calm = stageOf(state, r.id) >= 2 || hasQuirk(lead, "calm");
+      if (!calm && exp.phase === "in" && dice.chance(def.base! - skill(lead, def.check!) * def.per!)) {
+        line(def.outcome);
+        turnBack(lv, exp);
+        return survived(state, exp, r, dice, crew);
+      }
+      return passed();
     }
-    return roll < p;
-  });
+    case "guide": {
+      reveal(state, lv, exp.levelId, exp.pos, mastered ? 9 : 6);
+      if (exp.phase === "in") {
+        const taken = state.takenToday[exp.levelId];
+        const shown = lv.loot
+          .map((l, i) => ({ l, i }))
+          .filter(({ l, i }) => !taken.includes(i) && dist(l.at, exp.pos) <= (mastered ? 9 : 6))
+          .slice(0, 2);
+        for (const { l } of shown) exp.targets.unshift({ ...l.at });
+      }
+      line(def.outcome);
+      return survived(state, exp, r, dice, crew);
+    }
+    case "warn":
+      if (mastered || dice.chance(0.7)) {
+        exp.warned = true;
+        line(def.outcome);
+        return survived(state, exp, r, dice, crew);
+      }
+      return passed();
+    case "infect":
+      addInfection(state, mastered ? 1 : 3);
+      line(def.outcome);
+      return survived(state, exp, r, dice, crew);
+    case "steal": {
+      const deterred = crew.length >= (def.groupDeter ?? Infinity);
+      const best = Math.max(...crew.map((w) => skill(w, def.check!)));
+      if (exp.carried.length && !mastered && !deterred && dice.chance(def.base! - best * def.per!)) {
+        exp.carried.splice(dice.int(exp.carried.length), 1);
+        line(def.outcome);
+        return survived(state, exp, r, dice, crew);
+      }
+      return passed();
+    }
+    case "lure": {
+      if (exp.warned) {
+        exp.warned = false;
+        exp.log.push(`${first(lead)}: Something told us not to listen. We didn't.`);
+        return passed();
+      }
+      const victim = [...crew].sort((a, b) => skill(a, def.check!) - skill(b, def.check!))[0];
+      const p = Math.max(0.03, def.base! - skill(victim, def.check!) * def.per!) * (mastered ? 0.5 : 1) * depthMult;
+      if (!dice.chance(p)) return passed();
+      return lose(state, lv, exp, r, dice, crew, victim, def.outcome);
+    }
+    case "kill": {
+      const deterAt = def.groupDeter ? def.groupDeter - (mastered ? 1 : 0) : Infinity;
+      if (crew.length >= deterAt) return passed();
+      if (exp.warned) {
+        exp.warned = false;
+        exp.log.push(`${first(lead)}: The kite warned us in time. We hid until it passed.`);
+        return survived(state, exp, r, dice, crew);
+      }
+      if (def.moves === "dark" && useGear(exp, "repellent")) {
+        exp.log.push(`${first(lead)}: Sprayed the repellent. It hated that. It's gone.`);
+        return survived(state, exp, r, dice, crew);
+      }
+      // Each crew member tries to slip away; the entity takes at most one.
+      const order = [...crew].sort(() => dice.next() - 0.5);
+      for (const w of crew) if (hasQuirk(w, "coward") && crew.length > 1) revealLine(exp, w, "coward");
+      const victim = order.find((w) => {
+        if (hasQuirk(w, "coward") && crew.length > 1) return false;
+        let p = Math.max(0.03, def.base! - skill(w, def.check!) * def.per!);
+        if (mastered) p /= 2;
+        p *= depthMult;
+        const roll = dice.next();
+        if (hasQuirk(w, "lucky") && roll < p && roll >= p / 2) {
+          revealLine(exp, w, "lucky");
+          return false;
+        }
+        return roll < p;
+      });
+      if (!victim) return passed();
+      if (useGear(exp, "firstaid")) {
+        exp.log.push(`${first(lead)}: ${first(victim)} is hurt bad. Used the first aid kit. They'll make it.`);
+        return survived(state, exp, r, dice, crew);
+      }
+      const medic = crew.find((w) => w !== victim && skill(w, "medical") >= 4);
+      if (medic && dice.chance(0.3)) {
+        exp.log.push(`${first(medic)}: Got ${first(victim)} out of there. Bleeding, but walking.`);
+        return survived(state, exp, r, dice, crew);
+      }
+      return lose(state, lv, exp, r, dice, crew, victim, def.outcome);
+    }
+  }
+}
 
-  if (!victim) {
-    say(exp, dice, crew, RADIO.ESCAPE);
-    return survived(state, exp, r, dice, crew);
-  }
-  const medic = crew.find((w) => w !== victim && skill(w, "medical") >= 4);
-  if (medic && dice.chance(0.3)) {
-    exp.log.push(`${first(medic)}: Got ${first(victim)} out of there. Bleeding, but walking.`);
-    return survived(state, exp, r, dice, crew);
-  }
+// Someone is gone: plaque words, the radio line, and maybe a retreat.
+function lose(state: GameState, lv: Level, exp: Expedition, r: Roamer, dice: Dice, crew: Worker[], victim: Worker, outcome: string): void {
   const survivors = crew.filter((w) => w !== victim);
   // Their own last line on the radio, for the plaque.
   const mine = [...exp.log].reverse().find((l) => l.startsWith(`${first(victim)}: `));
@@ -365,7 +475,7 @@ function encounter(state: GameState, lv: Level, exp: Expedition, r: Roamer, dice
     exp.log.push(...RADIO.WIPE);
     return finish(state, exp);
   }
-  say(exp, dice, survivors, r.id === "hound" ? RADIO.HOUND_DEATH : RADIO.DEATH, { m: first(victim) });
+  say(exp, dice, survivors, [outcome], { m: first(victim), boss: state.bossName });
   survived(state, exp, r, dice, survivors);
   const lead = survivors.find((w) => w.id === exp.leadId) ?? survivors[0];
   exp.leadId = lead.id;
@@ -378,27 +488,14 @@ function encounter(state: GameState, lv: Level, exp: Expedition, r: Roamer, dice
   }
 }
 
-// Facelings are harmless, but crews who don't know that panic.
-function facelingEncounter(state: GameState, lv: Level, exp: Expedition, dice: Dice, crew: Worker[]): void {
-  const r = exp.entities.find((e) => e.id === "faceling")!;
-  const lead = crew.find((w) => w.id === exp.leadId) ?? crew[0];
-  const calm = stageOf(state, "faceling") >= 2 || hasQuirk(lead, "calm");
-  if (!calm && exp.phase === "in" && dice.chance(0.5 - skill(lead, "morale") * 0.08)) {
-    say(exp, dice, crew, RADIO.FACELING_PANIC);
-    turnBack(lv, exp);
-  } else {
-    say(exp, dice, crew, RADIO.FACELING_PASS);
-  }
-  survived(state, exp, r, dice, crew);
-}
-
 // Living through an encounter teaches the Index something and can leave a sample.
 function survived(state: GameState, exp: Expedition, r: Roamer, dice: Dice, crew: Worker[]): void {
   if (!crew.length) return;
   const note = learn(state, r.id, 2, crew[0].name);
   if (note) exp.log.push(note);
-  const chance = r.id === "faceling" ? (isMastered(state, "faceling") ? 0.75 : 0.5) : 0.35;
-  if (dice.chance(chance)) {
+  const def = entityDef(r.id);
+  const chance = def.sample * (isMastered(state, r.id) ? 1.5 : 1);
+  if (def.sample > 0 && dice.chance(chance)) {
     exp.carried.push(`sample-${r.id}`);
     say(exp, dice, crew, RADIO.SAMPLE);
   }
@@ -451,6 +548,9 @@ function finish(state: GameState, exp: Expedition): void {
 }
 
 // --- Radio calls -----------------------------------------------------------
+// A radio kit gives the office twice as long to answer.
+export const callTicks = (exp: Expedition) => CALL_TICKS * (exp.gear.includes("radio") ? 2 : 1);
+
 const callDef = (id: string): CallDef => CALLS.find((c) => c.id === id)!;
 
 function maybeCall(state: GameState, exp: Expedition, dice: Dice, crew: Worker[]): void {
@@ -510,7 +610,8 @@ function resolveCall(state: GameState, exp: Expedition, choice: number, dice: Di
     }
     // Leaving someone to limp along is cheaper. The office notices.
     addInfection(state, 2);
-    if (m !== lead && dice.chance(0.25)) {
+    // A rope kit means nobody gets left behind.
+    if (m !== lead && !exp.gear.includes("rope") && dice.chance(0.25)) {
       line("lost");
       m.lastWords = "Wait up. Guys? Wait up.";
       m.status = "dead";

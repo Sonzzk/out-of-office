@@ -1,6 +1,8 @@
 // The Index: everything the company has learned about the Backrooms.
 // Classic levels and entities are adapted from the Backrooms Wiki (CC BY-SA),
 // rewritten in our own words. Credit goes in the game's credits.
+import { ENTITIES } from "./entities";
+
 export type IndexKind = "level" | "entity" | "item";
 export type Stage = 0 | 1 | 2 | 3; // unknown, Seen, Documented, Mastered
 
@@ -32,33 +34,13 @@ export const INDEX: IndexEntry[] = [
     mastered: "Crews know the layout: navigation counts for more on Level 0.",
     lore: "The carpet was installed by a contractor the company has no record of hiring. The invoice is still in the system. It is addressed to you.",
   },
-  {
-    id: "smiler", kind: "entity", name: "Smiler", art: "entities/E01-smiler.png",
-    cls: 3, difficulty: "Deadly in the dark", maxStage: 3, dataValue: 220,
-    description: "A wide grin and two pale eyes floating in the dark. Nobody has seen the rest of it.",
-    where: "Dark patches of Level 0.",
-    avoid: "Don't run and don't stare. Stealthy crews slip past; loud ones don't.",
-    mastered: "Crews know not to run: Smilers take half as many people.",
-    lore: "Recovered audio from a dead crew's radio: the grin makes a sound. It sounds like the office muzak, played slower.",
-  },
-  {
-    id: "hound", kind: "entity", name: "Hound", art: "entities/E02-hound.png",
-    cls: 3, difficulty: "Hunts loners", maxStage: 3, dataValue: 200,
-    description: "Something that used to walk upright and now prefers all fours. It hunts by sound and goes for whoever is alone.",
-    where: "Roams the lit halls of Level 0.",
-    avoid: "Send crews of three or more. Hounds back off from a group.",
-    mastered: "Hounds back off from a pair, not just from three.",
-    lore: "Hounds wear the remains of company lanyards. HR has asked that this not be investigated further.",
-  },
-  {
-    id: "faceling", kind: "entity", name: "Faceling", art: "entities/E03-faceling.png",
-    cls: 1, difficulty: "Harmless, upsetting", maxStage: 3, dataValue: 120,
-    description: "A person-shaped thing with no face, wandering the halls like it is late for a meeting.",
-    where: "Anywhere on Level 0.",
-    avoid: "Ignore it. Crews that don't know that tend to panic and turn back.",
-    mastered: "Crews walk right past Facelings and pick up their shed skin more often.",
-    lore: "Facelings stop and turn toward the office when your company name is said out loud.",
-  },
+  ...ENTITIES.map(
+    (e): IndexEntry => ({
+      id: e.id, kind: "entity", name: e.name, art: `entities/${e.art}`, cls: e.cls, difficulty: e.difficulty,
+      description: e.description, where: e.where, avoid: e.avoid, mastered: e.mastered, lore: e.lore,
+      maxStage: 3, dataValue: 100 + 40 * e.cls,
+    }),
+  ),
   ...[
     ["level-1", "Level 1: Storage Annex", "levels/L01-storage-annex.png", 1, "Patrolled",
       "A concrete warehouse that goes on for miles. The shelves are stocked with crates nobody ordered and nobody signs for.",
