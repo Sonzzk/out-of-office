@@ -6,6 +6,7 @@ import { ITEMS } from "../data/items";
 import { CHECKOUT_TICK, CHECKOUT_WARN, levelDef } from "../data/levels";
 import { PLAQUES, WIPE_MEMO } from "../data/memos";
 import * as RADIO from "../data/radio";
+import * as MORE from "../data/radioMore";
 import { gainXp, hasQuirk, quirkDef, revealQuirk, skill, type Worker } from "./crew";
 import { BASE_CREW_SLOTS, callWait, crewSlots, freeFirstAid, moraleBoost } from "./facilities";
 import { DARK, dist, findPath, generateLevel, idx, nearestOpen, neighbors, WALL, type Level, type Pt } from "./level";
@@ -40,6 +41,8 @@ export interface Expedition {
   wait?: number; // radio mast: how much longer calls wait
   warned?: boolean; // a Warning Kite has the crew's back for one encounter
   callsMade: number;
+  boss?: string; // the player's name, for radio lines that use it
+  recent?: string[]; // radio lines already heard, so the crew does not repeat itself
   result?: { survivors: number; dead: string[]; loot: string[]; notes: string[] };
 }
 
@@ -150,9 +153,11 @@ export function startExpedition(
     nextChatter: 6,
     dice: (state.seed ^ Math.imul(state.nextId * 97 + state.day, 2654435761)) >>> 0,
     carried: [],
-    log: [`${lead.name}: Team lead here. Going in.`],
+    log: [fill(MORE.OPENERS[(state.nextId + state.day) % MORE.OPENERS.length], { n: lead.name })],
     encounters: 0,
     callsMade: 0,
+    boss: state.bossName,
+    recent: [...(state.recentLines ?? [])],
     gear: affordable(state, gear),
     used: [],
     wait: callWait(state),
@@ -181,9 +186,47 @@ function say(exp: Expedition, dice: Dice, crew: Worker[], lines: string[], extra
   if (!crew.length) return;
   const speaker = dice.pick(crew);
   const other = crew.length > 1 ? dice.pick(crew.filter((w) => w !== speaker)) : speaker;
-  // Someone alone can't talk about a teammate.
-  const usable = other === speaker && !extra.m ? lines.filter((l) => !l.includes("{m}")) : lines;
-  exp.log.push(fill(dice.pick(usable.length ? usable : lines), { n: first(speaker), m: first(other), ...extra }));
+  // Someone alone can't talk about a teammate, and lines about an item need one.
+  const hasItem = "item" in extra;
+  const usable = lines.filter((l) => (other !== speaker || extra.m || !l.includes("{m}")) && (hasItem || !l.includes("{item}")));
+  const pool = usable.length ? usable : lines;
+  // Prefer something the crew (and you) have not heard lately.
+  const recent = (exp.recent ??= []);
+  const fresh = pool.filter((l) => !recent.includes(l));
+  const line = dice.pick(fresh.length ? fresh : pool);
+  recent.push(line);
+  if (recent.length > RECENT_LINES) recent.splice(0, recent.length - RECENT_LINES);
+  exp.log.push(fill(line, { n: first(speaker), m: first(other), boss: exp.boss ?? "boss", ...extra }));
+}
+
+const RECENT_LINES = 60;
+
+// The best thing a crew is carrying, by sale value, for lines that name it.
+const bestItem = (exp: Expedition) => [...exp.carried].sort((a, b) => ITEMS[b].value - ITEMS[a].value).map((id) => ITEMS[id].name)[0];
+
+// Everything a crew might say while walking: the common lines, the floor's own,
+// running jokes that grow with the days, and the mood of the run so far.
+function ambientPool(state: GameState, exp: Expedition, crew: Worker[]): string[] {
+  const pool = [...RADIO.AMBIENT, ...MORE.AMBIENT_EXTRA, ...(MORE.LEVEL_AMBIENT[exp.levelId] ?? []), ...(MORE.LEVEL_AMBIENT[exp.levelId] ?? [])];
+  const jokes = MORE.RUNNING_JOKES.filter((j) => j.fromDay <= state.day).slice(-2);
+  for (const j of jokes) pool.push(...j.lines);
+  if (exp.encounters > 0 || exp.log.some((l) => /checked in|fell behind|lost /.test(l))) pool.push(...MORE.TENSE, ...MORE.TENSE);
+  if (exp.carried.length) pool.push(...MORE.CARRYING, ...MORE.CARRYING);
+  return pool;
+}
+
+// How a crew sounds at the door depends on how the run went.
+function homePool(state: GameState, exp: Expedition): string[] {
+  const lost = exp.crewIds.filter((id) => state.crew.find((w) => w.id === id)?.status === "dead").length;
+  const worth = exp.carried.reduce((a, id) => a + ITEMS[id].value, 0);
+  const pool = [...RADIO.HOME];
+  if (lost) return [...MORE.HOME_COSTLY, ...MORE.HOME_COSTLY];
+  if (exp.encounters >= 2) pool.push(...MORE.HOME_SHAKEN, ...MORE.HOME_SHAKEN);
+  if (!exp.encounters) pool.push(...MORE.HOME_CLEAN, ...MORE.HOME_CLEAN);
+  if (worth >= 600 || exp.carried.length >= 3) pool.push(...MORE.HOME_RICH, ...MORE.HOME_RICH);
+  if (!exp.carried.length) pool.push(...MORE.HOME_EMPTY, ...MORE.HOME_EMPTY);
+  if (exp.tick > 130) pool.push(...MORE.HOME_LATE);
+  return pool;
 }
 
 const first = (w: Worker) => (w.name.startsWith("CLONE") ? w.name : w.name.split(" ")[0]);
@@ -229,7 +272,7 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
     const step = target ? findPath(lv, exp.pos, target)[0] : undefined;
     if (step) exp.pos = step;
   } else if (dice.chance(0.2)) {
-    say(exp, dice, crew, RADIO.LOST);
+    say(exp, dice, crew, [...RADIO.LOST, ...MORE.LOST_MORE]);
   }
   const lamp = exp.gear.includes("flashlight") && lv.cells[idx(lv, exp.pos)] === DARK ? 2 : undefined;
   reveal(state, lv, exp.levelId, exp.pos, lamp);
@@ -243,14 +286,14 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
       taken.push(lootIdx);
       const item = ITEMS[lv.loot[lootIdx].itemId];
       exp.carried.push(item.id);
-      say(exp, dice, crew, RADIO.LOOT, { item: item.name });
+      say(exp, dice, crew, [...RADIO.LOOT, ...MORE.LOOT_MORE], { item: item.name });
     } else if (exp.phase === "in" && (exp.pins ?? [exp.waypoint]).some((p) => p.x === exp.pos.x && p.y === exp.pos.y)) {
-      say(exp, dice, crew, RADIO.ARRIVE);
+      say(exp, dice, crew, [...RADIO.ARRIVE, ...MORE.ARRIVE_MORE]);
     }
     if (exp.phase === "in" && !exp.targets.length) turnBack(lv, exp);
   }
   if (exp.phase === "return" && exp.pos.x === lv.entrance.x && exp.pos.y === lv.entrance.y) {
-    say(exp, dice, crew, RADIO.HOME);
+    say(exp, dice, crew, homePool(state, exp));
     exp.dice = dice.state;
     return finish(state, exp);
   }
@@ -268,7 +311,7 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
     // An infected office leaks into the radio, and it knows your name.
     else if (state.infection >= 30 && dice.chance(state.infection / 200))
       say(exp, dice, crew, INFECTED_RADIO, { boss: state.bossName, phrase: state.catchphrase ?? "" });
-    else say(exp, dice, crew, RADIO.AMBIENT);
+    else say(exp, dice, crew, ambientPool(state, exp, crew), exp.carried.length ? { item: bestItem(exp) } : {});
     exp.nextChatter = exp.tick + dice.range(9, 15);
   }
   exp.dice = dice.state;
@@ -333,7 +376,7 @@ function moveEntity(state: GameState, lv: Level, exp: Expedition, r: Roamer, dic
   const wasSeen = r.seen;
   r.seen = dist(r.pos, exp.pos) <= VISION;
   if (r.seen && !wasSeen) {
-    say(exp, dice, crew, def.spotted, { boss: state.bossName });
+    say(exp, dice, crew, [...def.spotted, ...(MORE.SPOTTED_MORE[r.id] ?? [])], { boss: state.bossName });
     const note = crew.length ? learn(state, r.id, 1, crew[0].name) : null;
     if (note) exp.log.push(note);
     if (whistler && def.sense > 0) revealLine(exp, whistler, "whistler");
@@ -383,7 +426,7 @@ export function encounter(state: GameState, lv: Level, exp: Expedition, r: Roame
   const vars = { boss: state.bossName };
   const line = (text: string, m?: Worker) => exp.log.push(fill(text, { n: first(lead), m: m ? first(m) : first(lead), ...vars }));
   const passed = () => {
-    say(exp, dice, crew, [def.passed], vars);
+    say(exp, dice, crew, [def.passed, ...(MORE.PASSED_MORE[def.id] ?? [])], vars);
     survived(state, exp, r, dice, crew);
   };
 
@@ -505,7 +548,7 @@ function lose(state: GameState, lv: Level, exp: Expedition, r: Roamer, dice: Dic
   if (hasQuirk(lead, "calm")) return revealLine(exp, lead, "calm");
   if (dice.chance(0.65 - skill(lead, "morale") * 0.1)) {
     if (hasQuirk(lead, "debts") && !exp.carried.length) return revealLine(exp, lead, "debts");
-    exp.log.push(fill(dice.pick(RADIO.RETREAT), { n: first(lead) }));
+    exp.log.push(fill(dice.pick([...RADIO.RETREAT, ...MORE.RETREAT_MORE]), { n: first(lead), boss: exp.boss ?? "boss" }));
     turnBack(lv, exp);
   }
 }
@@ -519,7 +562,7 @@ function survived(state: GameState, exp: Expedition, r: Roamer, dice: Dice, crew
   const chance = def.sample * (isMastered(state, r.id) ? 1.5 : 1);
   if (def.sample > 0 && dice.chance(chance)) {
     exp.carried.push(`sample-${r.id}`);
-    say(exp, dice, crew, RADIO.SAMPLE);
+    say(exp, dice, crew, [...RADIO.SAMPLE, ...MORE.SAMPLE_MORE]);
   }
 }
 
@@ -556,6 +599,7 @@ function finish(state: GameState, exp: Expedition): void {
   }
   notes.push(...exp.log.filter((l) => l.startsWith("HR learned something")));
   exp.dice = dice.state;
+  state.recentLines = (exp.recent ?? []).slice(-RECENT_LINES);
   for (const itemId of loot) {
     state.loot.push({ id: state.nextId++, itemId, foundBy: alive[0].name });
     const note = broughtHome(state, itemId, alive[0].name);

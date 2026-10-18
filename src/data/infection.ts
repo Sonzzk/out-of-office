@@ -39,6 +39,12 @@ export const INFECTED_RADIO = [
   "{n}: {m} says they saw you in the hall a minute ago, {boss}. You were waving.",
   "{n}: Someone wrote \"{phrase}\" on the wall. Fresh paint.",
   "{n}: The muzak down here is playing the hum from your office.",
+  "{n}: Your voice just came out of the wall. It said we did great.",
+  "{n}: There's a memo pinned up. It's addressed to {m}. It's signed with your name, {boss}.",
+  "{n}: {boss}, we can see the office through the ceiling. It's looking up at us.",
+  "{n}: The carpet here matches the carpet in your office. Down to the stain.",
+  "{n}: Whoever's on the channel with us isn't {boss}. Sounds a lot like {boss}.",
+  "{n}: Found your coffee mug, {boss}. Still hot. Down here.",
 ];
 
 export const TITLE_AWAY = ["{boss}, come back", "Out of Office (1)", "We're still here, {boss}", "Don't close this tab"];

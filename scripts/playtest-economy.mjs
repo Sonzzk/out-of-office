@@ -63,6 +63,7 @@ await page.click('[data-open="hr"]');
 const hr = page.locator('.win[data-app="hr"]');
 if (!(await hr.locator("[data-train]:not([disabled])").count())) fail("no training button");
 else await hr.locator("[data-train]:not([disabled])").first().click();
+if (!(await page.locator("[data-floor]").isHidden())) fail("FL 2 shown before the second floor is built");
 await page.click('[data-open="facilities"]');
 const fac = page.locator('.win[data-app="facilities"]');
 for (const id of ["memorial", "cage", "corner", "floor2"]) await fac.locator(`[data-project="${id}"]`).click();
