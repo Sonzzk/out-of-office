@@ -139,3 +139,8 @@
 .ledger .heat { padding: 6px 8px; margin-top: 6px; display: grid; gap: 4px; }
 .ledger .heat .bar { height: 10px; background: #000; border: 1px solid var(--sh); }
 .ledger .heat .bar i { display: block; height: 100%; background: #c4572a; }
+
+/* Infection */
+.memo .warp { color: #7a1d12; font-weight: bold; }
+.crewrow.phantom { opacity: 0.75; filter: grayscale(1) contrast(1.3); }
+.crewrow.phantom .nopt { width: 48px; height: 60px; flex: none; background: #111; border: 2px solid var(--sh); }

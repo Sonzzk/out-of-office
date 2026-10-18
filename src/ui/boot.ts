@@ -52,7 +52,8 @@ function clockIn(card: HTMLElement, state: GameState): Promise<void> {
         <button class="btn big go" data-clockin>CLOCK IN</button>
       </div>
     </div>`;
-  card.querySelector(".welcome")!.textContent = `Welcome back, ${state.bossName}.`;
+  card.querySelector(".welcome")!.textContent =
+    state.infection >= 60 ? `Welcome back, ${state.bossName}. You never left.` : `Welcome back, ${state.bossName}.`;
   card.querySelector(".catch")!.textContent = `"${state.catchphrase}"`;
   const btn = card.querySelector<HTMLButtonElement>("[data-clockin]")!;
   btn.focus();

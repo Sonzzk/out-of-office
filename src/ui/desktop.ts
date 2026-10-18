@@ -16,6 +16,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
       <div class="tray inset">
         <span class="hide-sm"><img src="./art/icons/U-cash.png" alt=""><b data-cash></b></span>
         <span class="hide-sm"><img src="./art/icons/U-heat.png" alt="">Heat <b data-heat></b></span>
+        <span class="hide-sm" data-air hidden><img src="./art/icons/U-infection.png" alt="">Air <b></b></span>
         <button class="hum" data-hum></button>
         <span><b data-clock></b></span>
       </div>
@@ -110,6 +111,10 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   const tick = () => {
     desk.querySelector("[data-cash]")!.textContent = `$${state.cash.toLocaleString("en-US")}`;
     desk.querySelector("[data-heat]")!.textContent = `${state.heat}%`;
+    // Facilities only starts measuring the air once there is something in it.
+    const air = desk.querySelector<HTMLElement>("[data-air]")!;
+    air.hidden = state.infection < 20;
+    air.querySelector("b")!.textContent = state.infection >= 60 ? "BAD" : `${100 - state.infection}%`;
     // Once in a long while the clock says 11:47 PM for a few seconds. It always does.
     if (frozen > 0) frozen--;
     else if (Math.random() < 0.0015) frozen = 6;

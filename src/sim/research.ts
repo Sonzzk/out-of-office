@@ -1,7 +1,7 @@
 import { INDEX, indexEntry, STAGE_NAME, type Stage } from "../data/index";
 import { ITEMS } from "../data/items";
 import { WALL, type Level } from "./level";
-import { addHeat, HEAT_PER_DATA_SALE } from "./office";
+import { addHeat, addInfection, HEAT_PER_DATA_SALE } from "./office";
 import type { GameState } from "./state";
 
 // What the company knows about each Index entry. Stages only ever go up.
@@ -81,6 +81,7 @@ export function finishResearch(state: GameState): string | null {
   if (!state.research) return null;
   const entity = ITEMS[state.research.itemId].sampleOf!;
   state.research = undefined;
+  addInfection(state, 2); // whatever was in the jar is in the building now
   const k = known(state, entity);
   k.count++;
   const stage: Stage = k.count >= SAMPLES_TO_MASTER ? 3 : k.count >= SAMPLES_TO_DOCUMENT ? 2 : 1;

@@ -1,4 +1,5 @@
 import { CALL_OUTCOMES, CALL_TICKS, CALL_TIMEOUT, CALLS, VENDING_PRICE, type CallDef } from "../data/calls";
+import { INFECTED_RADIO } from "../data/infection";
 import { ITEMS } from "../data/items";
 import { PLAQUES, WIPE_MEMO } from "../data/memos";
 import * as RADIO from "../data/radio";
@@ -199,6 +200,9 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
   if (exp.tick >= exp.nextChatter && (exp.phase as Expedition["phase"]) !== "done") {
     const talker = crew.find((w) => hasQuirk(w, "walls"));
     if (talker && dice.chance(0.25)) revealLine(exp, talker, "walls");
+    // An infected office leaks into the radio, and it knows your name.
+    else if (state.infection >= 30 && dice.chance(state.infection / 200))
+      say(exp, dice, crew, INFECTED_RADIO, { boss: state.bossName, phrase: state.catchphrase ?? "" });
     else say(exp, dice, crew, RADIO.AMBIENT);
     exp.nextChatter = exp.tick + dice.range(9, 15);
   }
@@ -394,6 +398,7 @@ function finish(state: GameState, exp: Expedition): void {
     });
   }
   addHeat(state, dead.length * HEAT_PER_DEATH + (alive.length ? 0 : HEAT_PER_WIPE));
+  addInfection(state, dead.length * 2);
   if (!alive.length) addMemo(state, WIPE_MEMO);
 }
 
