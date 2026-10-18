@@ -6,6 +6,7 @@ import { newGame } from "./sim/state";
 import { TITLE_AWAY } from "./data/infection";
 import { infectionStage, uneaseFor } from "./sim/infection";
 import { fill } from "./sim/state";
+import { isStreamer, shownName } from "./privacy";
 import { initStore, onChange, update, updateTick } from "./store";
 import { boot } from "./ui/boot";
 import { mountDesktop } from "./ui/desktop";
@@ -38,7 +39,8 @@ let awayCount = 0;
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) document.title = "Out of Office";
   else if (state.infection >= 30 || (forcedUnease ?? 0) >= 0.5)
-    document.title = fill(TITLE_AWAY[awayCount++ % TITLE_AWAY.length], { boss: state.bossName });
+    // On stream the tab never shows your name.
+    document.title = isStreamer() ? "Out of Office (1)" : fill(TITLE_AWAY[awayCount++ % TITLE_AWAY.length], { boss: shownName(state.bossName) });
 });
 
 // Expeditions keep running whatever window is open. ?fast speeds them up for

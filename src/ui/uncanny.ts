@@ -1,6 +1,7 @@
 // The things that make the desktop feel wrong. All of them scale with
 // `unease` (0..1): calm at the start, louder as the office infection grows.
 // Stage 6 ramps infection; for now it is the save's infection plus a floor.
+import { isStreamer } from "../privacy";
 import { humFlicker, isCalm, setAudioUnease, sfx } from "./audio";
 
 let raw = 0.15;
@@ -8,7 +9,7 @@ let unease = 0.15;
 
 // Calm mode holds the desktop effects near their gentlest.
 function apply(): void {
-  unease = isCalm() ? Math.min(raw, 0.12) : raw;
+  unease = isCalm() ? Math.min(raw, 0.12) : isStreamer() ? Math.min(raw, 0.5) : raw; // streamer mode tones the scares down
 }
 
 export function setUnease(v: number): void {

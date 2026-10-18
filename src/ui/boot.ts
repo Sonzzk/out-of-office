@@ -2,6 +2,7 @@
 // (name, catchphrase, company name) or a "clock in" button for a returning one.
 // The button press is also the click browsers need before they allow sound.
 import { companyName, type GameState } from "../sim/state";
+import { shownName } from "../privacy";
 import { sfx, startAudio } from "./audio";
 
 const CATCHPHRASES = ["Results, not excuses.", "Everyone is replaceable.", "Smile. It's a workplace.", "Not my department."];
@@ -53,7 +54,7 @@ function clockIn(card: HTMLElement, state: GameState): Promise<void> {
       </div>
     </div>`;
   card.querySelector(".welcome")!.textContent =
-    state.infection >= 60 ? `Welcome back, ${state.bossName}. You never left.` : `Welcome back, ${state.bossName}.`;
+    state.infection >= 60 ? `Welcome back, ${shownName(state.bossName)}. You never left.` : `Welcome back, ${shownName(state.bossName)}.`;
   card.querySelector(".catch")!.textContent = `"${state.catchphrase}"`;
   const btn = card.querySelector<HTMLButtonElement>("[data-clockin]")!;
   btn.focus();

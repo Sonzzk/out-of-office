@@ -4,6 +4,7 @@ import { hire, isVeteran, quirkDef, skill, type Worker } from "../sim/crew";
 import { infectionStage } from "../sim/infection";
 import { assign, contractPay, OVERTIME_PAY } from "../sim/office";
 import { game, update, watch } from "../store";
+import { shownName } from "../privacy";
 import { art, esc, money } from "./dom";
 
 function skillBars(w: Worker): string {
@@ -120,7 +121,7 @@ function phantom(s: ReturnType<typeof game>): string {
   return `<div class="crewrow inset phantom">
     <span class="nopt"></span>
     <div class="info">
-      <div class="top"><span class="nm">${esc(s.bossName)}</span><span class="lv">Lv ?</span><span class="dim st">At your desk</span></div>
+      <div class="top"><span class="nm">${esc(shownName(s.bossName))}</span><span class="lv">Lv ?</span><span class="dim st">At your desk</span></div>
       <div class="quirk"><b>Never left.</b> ${esc(s.catchphrase ?? "")}</div>
     </div></div>`;
 }

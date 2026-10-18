@@ -1,6 +1,7 @@
 import type { GameState } from "../sim/state";
 import { renderExpedition } from "./expedition";
 import { renderFacilities } from "./facilities";
+import { renderHandbook } from "./handbook";
 import { renderHR } from "./hr";
 import { renderInbox } from "./inbox";
 import { renderIndex } from "./indexApp";
@@ -30,5 +31,6 @@ export function apps(_state: GameState): DesktopApp[] {
     { id: "ledger", title: "Ledger", icon: art + "U-cash.png", w: 440, h: 480, render: renderLedger },
     { id: "lab", title: "Lab", icon: art + "U-sample-jar.png", w: 460, h: 360, render: renderLab },
     { id: "facilities", title: "Facilities", icon: art + "U-key.png", w: 560, h: 540, render: renderFacilities },
+    { id: "handbook", title: "Employee Handbook", icon: art + "U-padlock.png", w: 460, h: 270, render: renderHandbook },
   ];
 }
