@@ -93,9 +93,9 @@ export const LEVELS: LevelDef[] = [
   },
   {
     id: "level-10", depth: 10, name: "Wheat Field", art: "L10-wheat-field.png", style: "field", rule: "wheat", vision: 2,
-    entities: ["humans", "mother", "anna", "warning-kite", "wretch"],
+    entities: ["humans", "humans", "mother", "anna", "warning-kite", "wretch", "wretch"],
     loot: [["level-key", 3], ["deuclidator", 2], ["memory-jar", 3], ["ghost-light", 3], ["liquid-silence", 2]],
-    lootCount: 14, darkBlobs: 0,
+    lootCount: 12, darkBlobs: 0,
     blurb: "Anchor level. Wheat to the horizon under a sun that never sets. It's easy to walk out and hard to walk back.",
   },
 ];

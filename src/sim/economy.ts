@@ -56,8 +56,9 @@ export function endDay(state: GameState): boolean {
 
 // Daily wages. Veterans know what they're worth.
 export const VETERAN_BONUS = 20;
+export const WAGE_PER_LEVEL = 8; // experienced crews ask for more
 export function wage(w: Worker): number {
-  return SOURCE_INFO[w.source].wage + (isVeteran(w) ? VETERAN_BONUS : 0);
+  return SOURCE_INFO[w.source].wage + (isVeteran(w) ? VETERAN_BONUS : 0) + WAGE_PER_LEVEL * Math.max(0, w.level - 1);
 }
 
 function payroll(state: GameState): void {
@@ -83,7 +84,7 @@ function checkTarget(state: GameState): void {
   const t = state.target;
   if (state.day < t.deadline) return;
   if (state.cash >= t.amount) {
-    const next = { year: t.year + 1, amount: Math.round((t.amount * 1.8) / 500) * 500, deadline: state.day + 7 };
+    const next = { year: t.year + 1, amount: Math.round((t.amount * 1.7) / 500) * 500, deadline: state.day + 8 };
     state.target = next;
     addMemo(state, { from: TARGET_MET.from, subject: fill(TARGET_MET.subject, { year: t.year }), body: fill(TARGET_MET.body, { amount: money(next.amount), deadline: next.deadline }) });
   } else {

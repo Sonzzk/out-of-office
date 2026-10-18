@@ -24,13 +24,13 @@ describe("facilities", () => {
     expect(buyUpgrade(s, "mast")).toBe(true);
     expect(canUpgrade(s, "mast")).toBe(false);
     expect(tier(s, "mast")).toBe(2);
-    expect(s.cash).toBe(10000 - 600 - 1500);
-    expect(upkeep(s)).toBe(30);
+    expect(s.cash).toBe(10000 - 1200 - 3000);
+    expect(upkeep(s)).toBe(80);
     hireAll(s, 1);
     const before = s.cash;
     endDay(s);
-    expect(s.ledger.find((l) => l.text === "Facilities upkeep")?.amount).toBe(-30);
-    expect(s.cash).toBeLessThan(before - 30);
+    expect(s.ledger.find((l) => l.text === "Facilities upkeep")?.amount).toBe(-80);
+    expect(s.cash).toBeLessThan(before - 80);
   });
 
   it("refuses an upgrade the company can't afford", () => {
@@ -76,7 +76,7 @@ describe("facilities", () => {
 
   it("cools heat faster and makes bribes cheaper with the Security Desk", () => {
     const s = newGame(6);
-    s.cash = 5000;
+    s.cash = 10000;
     s.heat = 50;
     const plain = bribeCost(s);
     buyUpgrade(s, "security");

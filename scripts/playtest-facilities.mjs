@@ -22,7 +22,7 @@ await page.click('[data-open="hr"]');
 for (let i = 0; i < 3; i++) await page.locator("[data-hire]:not([disabled])").first().click();
 await page.evaluate(() => {
   const s = JSON.parse(localStorage.getItem("out-of-office.save"));
-  s.cash = 6000;
+  s.cash = 9000;
   s.loot.push({ id: 9001, itemId: "sample-hound", foundBy: "Amos" }, { id: 9002, itemId: "sample-smiler", foundBy: "Amos" });
   localStorage.setItem("out-of-office.save", JSON.stringify(s));
 });

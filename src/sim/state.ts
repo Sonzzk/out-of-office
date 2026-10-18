@@ -61,7 +61,7 @@ export interface GameState {
 }
 
 export const SAVE_VERSION = 9;
-export const FIRST_TARGET = { year: 1, amount: 2500, deadline: 5 };
+export const FIRST_TARGET = { year: 1, amount: 2000, deadline: 6 };
 
 // Bring older saves up to date instead of throwing them away.
 export function migrate(save: any): GameState | null {
