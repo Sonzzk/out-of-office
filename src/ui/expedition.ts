@@ -1,10 +1,12 @@
 import { ITEMS } from "../data/items";
 import { isVeteran } from "../sim/crew";
-import { CALL_TICKS, CALLS } from "../data/calls";
+import { CALLS } from "../data/calls";
+import { entityDef } from "../data/entities";
+import { GEAR, gearDef } from "../data/gear";
 import { LEVELS, levelDef } from "../data/levels";
 import { indexEntry } from "../data/index";
 import { surveyed, isUnlocked } from "../sim/research";
-import { answerCall, CREW_SLOTS, levelOf, MAX_CREW, oddsWord, running, startExpedition, suggestLead, type Expedition } from "../sim/expedition";
+import { answerCall, callTicks, CREW_SLOTS, levelOf, MAX_CREW, oddsWord, running, startExpedition, suggestLead, type Expedition } from "../sim/expedition";
 import { DARK, FLOOR, idx, type Pt } from "../sim/level";
 import { game, update, watch, type Topic } from "../store";
 import { art, esc } from "./dom";
@@ -25,6 +27,7 @@ export function renderExpedition(body: HTMLElement): void {
   let selected: number | null = null; // the run shown in the side panel
   let planning = false; // planning a second run while one is out
   let planLevel = "level-0";
+  const packed = new Set<string>(); // gear for the next run
 
   // Runs still worth showing: out in the field, or finished with an unread debrief.
   const visible = (): Expedition[] => game().expeditions.filter((e) => !dismissed.has(e.id));
@@ -83,6 +86,13 @@ export function renderExpedition(body: HTMLElement): void {
       renderSide();
       return;
     }
+    const gearBox = t.closest<HTMLInputElement>("input[data-gear]");
+    if (gearBox) {
+      if (gearBox.checked) packed.add(gearBox.dataset.gear!);
+      else packed.delete(gearBox.dataset.gear!);
+      renderSide();
+      return;
+    }
     const box = t.closest<HTMLInputElement>("input[data-pick]");
     if (box) {
       const id = Number(box.dataset.pick);
@@ -95,11 +105,12 @@ export function renderExpedition(body: HTMLElement): void {
       const m = marker;
       const lead = leadId ?? undefined;
       update((s) => {
-        const exp = startExpedition(s, [...picked], m, lead, planLevel);
+        const exp = startExpedition(s, [...picked], m, lead, planLevel, [...packed]);
         if (exp) selected = exp.id;
       });
       planning = false;
       picked.clear();
+      packed.clear();
       leadId = null;
       marker = null;
     }
@@ -165,6 +176,13 @@ export function renderExpedition(body: HTMLElement): void {
       ${picked.size ? `<p class="dim">Up to ${MAX_CREW}. The team lead decides when to turn back.</p>` : ""}
       <h4>2. Drop a marker</h4>
       <p class="dim">${marker ? "Marker set. Click the map to move it." : "Click anywhere on the map. Dark areas are unexplored."}</p>
+      <h4>3. Pack gear <span class="dim">(optional, used up)</span></h4>
+      <div class="gear">${GEAR.map((g) => {
+        const spent = [...packed].filter((id) => id !== g.id).reduce((a, id) => a + gearDef(id).cost, 0);
+        const can = packed.has(g.id) || s.cash - spent >= g.cost;
+        return `<label title="${esc(g.blurb)}"><input type="checkbox" data-gear="${g.id}" ${packed.has(g.id) ? "checked" : ""} ${can ? "" : "disabled"}>
+          <img src="${art.item(g.art)}" alt="">${esc(g.name)} <span class="dim">$${g.cost}</span></label>`;
+      }).join("")}</div>
       <div class="odds">Survival odds: <b>${picked.size ? oddsWord(s, [...picked]) : "..."}</b></div>
       <button class="btn go big" data-send ${picked.size && marker ? "" : "disabled"}>Send them in</button>`;
   }
@@ -182,7 +200,7 @@ export function renderExpedition(body: HTMLElement): void {
           ? "Heading in"
           : "Coming back";
     const head = `
-      <div class="runhead"><b>${phase}</b><span class="dim">${exp.carried.length ? exp.carried.map((i) => esc(ITEMS[i].name)).join(", ") : "Nothing found yet"}</span></div>
+      <div class="runhead"><b>${phase}</b>${exp.gear.length ? `<span class="kits">${exp.gear.map((g) => `<img class="kit${exp.used.includes(g) ? " used" : ""}" src="${art.item(gearDef(g).art)}" title="${esc(gearDef(g).name)}${exp.used.includes(g) ? " (used)" : ""}" alt="">`).join("")}</span>` : ""}<span class="dim">${exp.carried.length ? exp.carried.map((i) => esc(ITEMS[i].name)).join(", ") : "Nothing found yet"}</span></div>
       <div class="crewline">${crew
         .map((w) => `<span class="${w.status === "dead" ? "gone" : ""}" title="${esc(w.name)}"><img src="${art.portrait(w.portrait)}" alt=""></span>`)
         .join("")}</div>`;
@@ -211,8 +229,8 @@ export function renderExpedition(body: HTMLElement): void {
       return;
     }
     const def = CALLS.find((c) => c.id === exp.call!.id)!;
-    const left = Math.max(0, CALL_TICKS - (exp.tick - exp.call.asked));
-    const pct = Math.round((100 * left) / CALL_TICKS);
+    const left = Math.max(0, callTicks(exp) - (exp.tick - exp.call.asked));
+    const pct = Math.round((100 * left) / callTicks(exp));
     if (!box.querySelector(".call")) {
       box.innerHTML = `<div class="call inset"><b>The crew is waiting for your call</b>
         <div class="opts">${def.options.map((o, i) => `<button class="btn ${i === 0 ? "go" : ""}" data-answer="${i}">${esc(o)}</button>`).join("")}</div>
@@ -296,8 +314,12 @@ export function renderExpedition(body: HTMLElement): void {
     if (exp && exp.phase !== "done") {
       for (const r of exp.entities) {
         if (!r.seen) continue;
-        const draw = r.id === "hound" ? hound : r.id === "faceling" ? faceling : smiler;
-        draw(ctx, ox + r.pos.x * cell + cell / 2, oy + r.pos.y * cell + cell / 2, cell * 0.42);
+        const x = ox + r.pos.x * cell + cell / 2;
+        const y = oy + r.pos.y * cell + cell / 2;
+        if (r.id === "smiler") smiler(ctx, x, y, cell * 0.42);
+        else if (r.id === "hound") hound(ctx, x, y, cell * 0.42);
+        else if (r.id === "faceling") faceling(ctx, x, y, cell * 0.42);
+        else sprite(ctx, entityDef(r.id).art, x, y, cell * 1.3, draw);
       }
       const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 160);
       ctx.fillStyle = `rgba(214,58,36,${pulse})`;
@@ -397,4 +419,22 @@ function faceling(ctx: CanvasRenderingContext2D, x: number, y: number, r: number
   ctx.ellipse(x, y, r * 0.8, r * 1.1, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
+}
+
+// Other entities show as a small framed picture of their Index art.
+const sprites = new Map<string, HTMLImageElement>();
+function sprite(ctx: CanvasRenderingContext2D, file: string, x: number, y: number, size: number, redraw: () => void): void {
+  let img = sprites.get(file);
+  if (!img) {
+    img = new Image();
+    img.onload = redraw;
+    img.src = `./art/entities/${file}`;
+    sprites.set(file, img);
+  }
+  ctx.fillStyle = "#000";
+  ctx.fillRect(x - size / 2 - 1, y - size / 2 - 1, size + 2, size + 2);
+  if (img.complete && img.naturalWidth) ctx.drawImage(img, x - size / 2, y - size / 2, size, size);
+  ctx.strokeStyle = "#d63a24";
+  ctx.lineWidth = Math.max(1, size / 14);
+  ctx.strokeRect(x - size / 2, y - size / 2, size, size);
 }
