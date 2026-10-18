@@ -1,12 +1,13 @@
 import { CALL_OUTCOMES, CALL_TICKS, CALL_TIMEOUT, CALLS, VENDING_PRICE, type CallDef } from "../data/calls";
 import { INFECTED_RADIO } from "../data/infection";
 import { ITEMS } from "../data/items";
+import { CHECKOUT_TICK, CHECKOUT_WARN, levelDef } from "../data/levels";
 import { PLAQUES, WIPE_MEMO } from "../data/memos";
 import * as RADIO from "../data/radio";
 import { gainXp, hasQuirk, quirkDef, revealQuirk, skill, type Worker } from "./crew";
 import { DARK, dist, findPath, generateLevel, idx, nearestOpen, neighbors, WALL, type Level, type Pt } from "./level";
 import { addHeat, addInfection, HEAT_PER_DEATH, HEAT_PER_WIPE } from "./office";
-import { broughtHome, checkSurvey, isMastered, learn, stageOf } from "./research";
+import { broughtHome, checkSurvey, isMastered, isUnlocked, learn, stageOf } from "./research";
 import { Dice } from "./rng";
 import { addMemo, fill, type GameState } from "./state";
 
@@ -14,6 +15,7 @@ import { addMemo, fill, type GameState } from "./state";
 // saved mid-way and stepped by tests without a browser.
 export interface Expedition {
   id: number;
+  levelId: string;
   crewIds: number[];
   leadId: number;
   waypoint: Pt;
@@ -41,17 +43,33 @@ export interface Roamer {
 }
 
 const VISION = 3;
-const cache = new Map<number, Level>();
 
-export function level0(state: GameState): Level {
-  let lv = cache.get(state.level0Seed);
+// Each level is rebuilt from a seed derived from the save. The hotel's seed
+// changes every day, which is how it rearranges itself.
+export function levelSeed(state: GameState, levelId: string): number {
+  const def = levelDef(levelId);
+  if (def.depth === 0) return state.level0Seed;
+  const base = (state.level0Seed + def.depth * 104729) >>> 0;
+  return def.rule === "hotel" ? (base ^ Math.imul(state.day, 2654435761)) >>> 0 : base;
+}
+
+const cache = new Map<string, Level>();
+
+export function levelOf(state: GameState, levelId: string): Level {
+  const seed = levelSeed(state, levelId);
+  const key = `${levelId}:${seed}`;
+  let lv = cache.get(key);
   if (!lv) {
-    lv = generateLevel(state.level0Seed);
-    cache.set(state.level0Seed, lv);
+    lv = generateLevel(seed, levelDef(levelId));
+    cache.set(key, lv);
   }
-  if (state.fog.length !== lv.cells.length) state.fog = new Array(lv.cells.length).fill(0);
+  const fog = state.fog[levelId];
+  if (!fog || fog.length !== lv.cells.length) state.fog[levelId] = new Array(lv.cells.length).fill(0);
+  state.takenToday[levelId] ??= [];
   return lv;
 }
+
+export const level0 = (state: GameState) => levelOf(state, "level-0");
 
 function members(state: GameState, exp: Expedition): Worker[] {
   return exp.crewIds.map((id) => state.crew.find((w) => w.id === id)!).filter((w) => w.status === "out");
@@ -79,18 +97,25 @@ export function suggestLead(crew: Worker[]): Worker {
   return [...crew].sort((a, b) => b.level - a.level || skill(b, "morale") - skill(a, "morale"))[0];
 }
 
-export function startExpedition(state: GameState, crewIds: number[], marker: Pt, leadId?: number): Expedition | null {
+export function startExpedition(
+  state: GameState,
+  crewIds: number[],
+  marker: Pt,
+  leadId?: number,
+  levelId = "level-0",
+): Expedition | null {
   const crew = crewIds
     .map((id) => state.crew.find((w) => w.id === id))
     .filter((w): w is Worker => !!w && w.status === "idle")
     .slice(0, MAX_CREW);
-  if (!crew.length || running(state).length >= CREW_SLOTS) return null;
-  const lv = level0(state);
+  if (!crew.length || running(state).length >= CREW_SLOTS || !isUnlocked(state, levelId)) return null;
+  const lv = levelOf(state, levelId);
   const waypoint = nearestOpen(lv, marker);
   const lead = crew.find((w) => w.id === leadId) ?? suggestLead(crew);
   for (const w of crew) w.status = "out";
   const exp: Expedition = {
     id: state.nextId++,
+    levelId,
     crewIds: crew.map((w) => w.id),
     leadId: lead.id,
     waypoint,
@@ -106,16 +131,17 @@ export function startExpedition(state: GameState, crewIds: number[], marker: Pt,
     encounters: 0,
     callsMade: 0,
   };
-  reveal(state, lv, exp.pos);
+  reveal(state, lv, levelId, exp.pos);
   state.expeditions.push(exp);
   return exp;
 }
 
-function reveal(state: GameState, lv: Level, p: Pt): void {
-  const r = lv.cells[idx(lv, p)] === DARK ? 1 : VISION;
+function reveal(state: GameState, lv: Level, levelId: string, p: Pt, radius?: number): void {
+  const fog = state.fog[levelId];
+  const r = radius ?? (lv.cells[idx(lv, p)] === DARK ? 1 : VISION);
   for (let y = p.y - r; y <= p.y + r; y++)
     for (let x = p.x - r; x <= p.x + r; x++)
-      if (x >= 0 && y >= 0 && x < lv.w && y < lv.h && dist(p, { x, y }) <= r) state.fog[y * lv.w + x] = 1;
+      if (x >= 0 && y >= 0 && x < lv.w && y < lv.h && dist(p, { x, y }) <= r) fog[y * lv.w + x] = 1;
 }
 
 function say(exp: Expedition, dice: Dice, crew: Worker[], lines: string[], extra: Record<string, string> = {}): void {
@@ -132,7 +158,8 @@ const first = (w: Worker) => (w.name.startsWith("CLONE") ? w.name : w.name.split
 // Advance one tick: the crew moves one cell, the entity moves, things happen.
 export function stepExpedition(state: GameState, exp: Expedition): void {
   if (exp.phase === "done") return;
-  const lv = level0(state);
+  const lv = levelOf(state, exp.levelId);
+  const taken = state.takenToday[exp.levelId];
   const dice = new Dice(exp.dice);
   const crew = members(state, exp);
   exp.tick++;
@@ -142,14 +169,14 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
   const navSum = crew.reduce((s, w) => s + skill(w, "nav"), 0) + (lead ? skill(lead, "nav") : 0);
   const avgNav = navSum / Math.max(1, crew.length + (lead ? 1 : 0));
   // Once Level 0 is mastered, everyone knows the way.
-  const mapBonus = isMastered(state, "level-0") ? 1 : 0;
+  const mapBonus = isMastered(state, exp.levelId) ? 1 : 0;
   const stalled = dice.chance(Math.max(0, 0.16 - (avgNav + mapBonus) * 0.03));
 
   // Spot loot nearby on the way in and detour for it.
   if (exp.phase === "in") {
     lv.loot.forEach((l, i) => {
       const known = exp.targets.some((t) => t.x === l.at.x && t.y === l.at.y);
-      if (!known && !state.takenToday.includes(i) && dist(l.at, exp.pos) <= 2) exp.targets.unshift({ ...l.at });
+      if (!known && !taken.includes(i) && dist(l.at, exp.pos) <= 2) exp.targets.unshift({ ...l.at });
     });
   }
 
@@ -168,15 +195,15 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
   } else if (dice.chance(0.2)) {
     say(exp, dice, crew, RADIO.LOST);
   }
-  reveal(state, lv, exp.pos);
+  reveal(state, lv, exp.levelId, exp.pos);
 
   // Arrived somewhere?
   const target = exp.targets[0];
   if (target && target.x === exp.pos.x && target.y === exp.pos.y) {
     exp.targets.shift();
-    const lootIdx = lv.loot.findIndex((l, i) => l.at.x === exp.pos.x && l.at.y === exp.pos.y && !state.takenToday.includes(i));
+    const lootIdx = lv.loot.findIndex((l, i) => l.at.x === exp.pos.x && l.at.y === exp.pos.y && !taken.includes(i));
     if (lootIdx >= 0) {
-      state.takenToday.push(lootIdx);
+      taken.push(lootIdx);
       const item = ITEMS[lv.loot[lootIdx].itemId];
       exp.carried.push(item.id);
       say(exp, dice, crew, RADIO.LOOT, { item: item.name });
@@ -191,6 +218,7 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
     return finish(state, exp);
   }
 
+  if (levelDef(exp.levelId).rule === "hotel") checkout(state, lv, exp, dice);
   for (const r of exp.entities) {
     if ((exp.phase as Expedition["phase"]) === "done") break;
     moveEntity(state, lv, exp, r, dice, members(state, exp));
@@ -207,6 +235,26 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
     exp.nextChatter = exp.tick + dice.range(9, 15);
   }
   exp.dice = dice.state;
+}
+
+// Hotel Overflow: the front desk calls checkout, and stragglers get checked in.
+function checkout(state: GameState, lv: Level, exp: Expedition, dice: Dice): void {
+  const crew = members(state, exp);
+  if (exp.tick === CHECKOUT_WARN) {
+    exp.log.push("Front desk: Checkout is in twenty minutes. We hope you enjoyed your stay.");
+    if (exp.phase === "in") turnBack(lv, exp);
+  }
+  if (exp.tick >= CHECKOUT_TICK && (exp.tick - CHECKOUT_TICK) % 10 === 0 && crew.length) {
+    const guest = dice.pick(crew);
+    guest.lastWords = "Just one more night.";
+    guest.status = "dead";
+    guest.diedOnDay = state.day;
+    exp.log.push(`Front desk: ${guest.name} has been checked in. Their room is ready.`);
+    if (crew.length === 1) {
+      exp.log.push(...RADIO.WIPE);
+      finish(state, exp);
+    }
+  }
 }
 
 function turnBack(lv: Level, exp: Expedition): void {
@@ -289,6 +337,7 @@ function encounter(state: GameState, lv: Level, exp: Expedition, r: Roamer, dice
     if (hasQuirk(w, "coward") && crew.length > 1) return false;
     let p = r.id === "hound" ? 0.55 - skill(w, "stealth") * 0.06 : 0.5 - skill(w, "stealth") * 0.075;
     if (r.id === "smiler" && isMastered(state, "smiler")) p /= 2;
+    p *= 1 + levelDef(exp.levelId).depth * 0.08; // deeper is deadlier
     const roll = dice.next();
     if (hasQuirk(w, "lucky") && roll < p && roll >= p / 2) {
       revealLine(exp, w, "lucky");
@@ -384,8 +433,7 @@ function finish(state: GameState, exp: Expedition): void {
     const note = broughtHome(state, itemId, alive[0].name);
     if (note) notes.push(note);
   }
-  const survey = checkSurvey(state, level0(state));
-  if (survey) notes.push(survey);
+  notes.push(...checkSurvey(state, levelOf(state, exp.levelId), exp.levelId));
   notes.push(...exp.log.filter((l) => l.startsWith("Index updated") && !notes.includes(l)));
   exp.result = { survivors: alive.length, dead: dead.map((w) => w.name), loot, notes };
   for (const w of dead) {
@@ -428,7 +476,7 @@ export function answerCall(state: GameState, exp: Expedition, choice: number): b
 function resolveCall(state: GameState, exp: Expedition, choice: number, dice: Dice): void {
   const call = exp.call!;
   exp.call = undefined;
-  const lv = level0(state);
+  const lv = levelOf(state, exp.levelId);
   const crew = members(state, exp);
   const lead = crew.find((w) => w.id === exp.leadId) ?? crew[0];
   const m = crew.find((w) => w.id === call.m) ?? lead;
@@ -452,9 +500,7 @@ function resolveCall(state: GameState, exp: Expedition, choice: number, dice: Di
     }
   } else if (call.id === "phone") {
     if (choice === 1) return void line("ignore");
-    for (let y = exp.pos.y - 7; y <= exp.pos.y + 7; y++)
-      for (let x = exp.pos.x - 7; x <= exp.pos.x + 7; x++)
-        if (x >= 0 && y >= 0 && x < lv.w && y < lv.h && dist(exp.pos, { x, y }) <= 7) state.fog[y * lv.w + x] = 1;
+    reveal(state, lv, exp.levelId, exp.pos, 7);
     addInfection(state, 3);
     line("answer");
   } else if (call.id === "ankle") {

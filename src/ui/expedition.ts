@@ -1,12 +1,15 @@
 import { ITEMS } from "../data/items";
 import { isVeteran } from "../sim/crew";
 import { CALL_TICKS, CALLS } from "../data/calls";
-import { answerCall, CREW_SLOTS, level0, MAX_CREW, oddsWord, running, startExpedition, suggestLead, type Expedition } from "../sim/expedition";
+import { LEVELS, levelDef } from "../data/levels";
+import { indexEntry } from "../data/index";
+import { surveyed, isUnlocked } from "../sim/research";
+import { answerCall, CREW_SLOTS, levelOf, MAX_CREW, oddsWord, running, startExpedition, suggestLead, type Expedition } from "../sim/expedition";
 import { DARK, FLOOR, idx, type Pt } from "../sim/level";
 import { game, update, watch, type Topic } from "../store";
 import { art, esc } from "./dom";
 
-// Facility Map: plan a run on Level 0 by picking crew and dropping a marker,
+// Facility Map: plan a run by picking a level, a crew and a marker,
 // then watch it play out on the same schematic with the radio log beside it.
 export function renderExpedition(body: HTMLElement): void {
   body.classList.add("expo");
@@ -21,6 +24,7 @@ export function renderExpedition(body: HTMLElement): void {
   const dismissed = new Set<number>(); // finished runs whose debrief was closed
   let selected: number | null = null; // the run shown in the side panel
   let planning = false; // planning a second run while one is out
+  let planLevel = "level-0";
 
   // Runs still worth showing: out in the field, or finished with an unread debrief.
   const visible = (): Expedition[] => game().expeditions.filter((e) => !dismissed.has(e.id));
@@ -30,10 +34,11 @@ export function renderExpedition(body: HTMLElement): void {
     return runs.find((e) => e.id === selected) ?? runs[runs.length - 1];
   };
   const canPlan = () => running(game()).length < CREW_SLOTS;
+  const shownLevel = () => current()?.levelId ?? planLevel;
 
   canvas.addEventListener("click", (ev) => {
     if (current() || !canPlan()) return;
-    const lv = level0(game());
+    const lv = levelOf(game(), planLevel);
     const r = canvas.getBoundingClientRect();
     const cell = cellSize(canvas, lv);
     const ox = (canvas.width - cell * lv.w) / 2;
@@ -50,6 +55,14 @@ export function renderExpedition(body: HTMLElement): void {
 
   body.addEventListener("click", (ev) => {
     const t = ev.target as HTMLElement;
+    const pickLevel = t.closest<HTMLElement>("[data-level]");
+    if (pickLevel) {
+      if (pickLevel.dataset.level !== planLevel) marker = null;
+      planLevel = pickLevel.dataset.level!;
+      renderSide();
+      draw();
+      return;
+    }
     const tab = t.closest<HTMLElement>("[data-run]");
     if (tab) {
       planning = tab.dataset.run === "plan";
@@ -82,7 +95,7 @@ export function renderExpedition(body: HTMLElement): void {
       const m = marker;
       const lead = leadId ?? undefined;
       update((s) => {
-        const exp = startExpedition(s, [...picked], m, lead);
+        const exp = startExpedition(s, [...picked], m, lead, planLevel);
         if (exp) selected = exp.id;
       });
       planning = false;
@@ -107,7 +120,7 @@ export function renderExpedition(body: HTMLElement): void {
     const label = (e: Expedition) => {
       const lead = s.crew.find((w) => w.id === e.leadId)!;
       const state = e.call ? `<b class="ring">CALL</b>` : e.phase === "done" ? "back" : "out";
-      return `${esc(lead.name.split(" ")[0])}${e.crewIds.length > 1 ? ` +${e.crewIds.length - 1}` : ""} · ${state}`;
+      return `L${levelDef(e.levelId).depth} ${esc(lead.name.split(" ")[0])}${e.crewIds.length > 1 ? ` +${e.crewIds.length - 1}` : ""} · ${state}`;
     };
     return `<div class="runtabs">${runs
       .map((e) => `<button class="tab ${exp?.id === e.id ? "on" : ""}" data-run="${e.id}">${label(e)}</button>`)
@@ -127,9 +140,15 @@ export function renderExpedition(body: HTMLElement): void {
     const team = idle.filter((w) => picked.has(w.id));
     if (leadId === null || !picked.has(leadId)) leadId = team.length ? suggestLead(team).id : null;
     const full = picked.size >= MAX_CREW;
+    const def = levelDef(planLevel);
     side.innerHTML = `${tabs()}
-      <img class="lvl" src="${art.level("L00-waiting-floor.png")}" alt="">
-      <div class="lvname"><b>Level 0</b> · The Waiting Floor<br><span class="dim">Class 1. Endless yellow halls. Smilers in the dark, Hounds in the halls.</span></div>
+      <div class="levels">${LEVELS.map((l) =>
+        isUnlocked(s, l.id)
+          ? `<button class="tab ${l.id === planLevel ? "on" : ""}" data-level="${l.id}" title="${esc(l.name)}">L${l.depth}</button>`
+          : `<button class="tab" disabled title="Document Level ${l.depth - 1} to open this">L${l.depth}</button>`,
+      ).join("")}</div>
+      <img class="lvl" src="${art.level(def.art)}" alt="">
+      <div class="lvname"><b>Level ${def.depth}</b> · ${esc(def.name)}<br><span class="dim">Class ${indexEntry(def.id).cls}. ${esc(def.blurb)}</span></div>
       <h4>1. Pick a crew</h4>
       ${
         idle.length
@@ -215,8 +234,11 @@ export function renderExpedition(body: HTMLElement): void {
 
   function draw(): void {
     const s = game();
-    const lv = level0(s);
     const exp = current();
+    const levelId = shownLevel();
+    const lv = levelOf(s, levelId);
+    const fog = s.fog[levelId];
+    const taken = s.takenToday[levelId];
     const w = (canvas.width = Math.max(100, canvas.clientWidth * devicePixelRatio));
     const h = (canvas.height = Math.max(100, canvas.clientHeight * devicePixelRatio));
     const ctx = canvas.getContext("2d")!;
@@ -231,7 +253,7 @@ export function renderExpedition(body: HTMLElement): void {
         const i = y * lv.w + x;
         const px = ox + x * cell;
         const py = oy + y * cell;
-        if (!s.fog[i]) {
+        if (!fog[i]) {
           ctx.fillStyle = "rgba(201,186,90,0.05)";
           ctx.fillRect(px + cell / 2 - 1, py + cell / 2 - 1, 2, 2);
           continue;
@@ -243,7 +265,7 @@ export function renderExpedition(body: HTMLElement): void {
 
     // Loot the crews have seen and not picked up yet.
     lv.loot.forEach((l, i) => {
-      if (!s.fog[idx(lv, l.at)] || s.takenToday.includes(i)) return;
+      if (!fog[idx(lv, l.at)] || taken.includes(i)) return;
       ctx.fillStyle = "#e8d46a";
       ctx.strokeStyle = "#1d1a0e";
       const px = ox + l.at.x * cell + cell * 0.25;
@@ -264,7 +286,7 @@ export function renderExpedition(body: HTMLElement): void {
 
     // Every crew in the field shows; the one you're listening to pulses red.
     for (const other of running(s)) {
-      if (other === exp) continue;
+      if (other === exp || other.levelId !== levelId) continue;
       ctx.fillStyle = "#d98a2b";
       ctx.beginPath();
       ctx.arc(ox + other.pos.x * cell + cell / 2, oy + other.pos.y * cell + cell / 2, cell * 0.3, 0, Math.PI * 2);
@@ -287,10 +309,10 @@ export function renderExpedition(body: HTMLElement): void {
       ctx.stroke();
     }
 
-    const surveyed = Math.round((100 * s.fog.reduce((a, b) => a + b, 0)) / s.fog.length);
+    const pct = Math.round(100 * surveyed(s, lv, levelId));
     ctx.fillStyle = "#e9e2b0";
     ctx.font = `bold ${11 * devicePixelRatio}px monospace`;
-    ctx.fillText(`LEVEL 0 · SURVEYED ${surveyed}%`, 8 * devicePixelRatio, 16 * devicePixelRatio);
+    ctx.fillText(`LEVEL ${levelDef(levelId).depth} · SURVEYED ${pct}%`, 8 * devicePixelRatio, 16 * devicePixelRatio);
   }
 
   watch(
