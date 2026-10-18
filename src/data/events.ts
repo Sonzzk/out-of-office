@@ -85,7 +85,35 @@ export const EVENTS: Record<string, EventDef> = {
     fallback: 1,
     cooldown: 4,
   },
+  clockout: {
+    id: "clockout",
+    from: "Security",
+    subject: "{name} did not clock out",
+    bodies: [
+      "The cameras show {name} at their desk at 7 PM. The badge reader says they left at 6. Both are right.\n\nThey are still there. They are very still.\n\n- Security",
+      "{name} is at their desk again. Their coffee has a skin on it. They say they are \"just finishing something.\" Nothing on their screen is finished.\n\n- Security",
+    ],
+    choices: ["Send them home with a day's pay", "Leave them be"],
+    fallback: 1,
+    cooldown: 4,
+  },
+  door: {
+    id: "door",
+    from: "Facilities",
+    subject: "There is a door by the supply closet",
+    bodies: [
+      "There is a door next to the supply closet. It was not there on Friday. It is the same colour as the wall, but it has a handle.\n\nIt is warm. We don't recommend touching it.\n\n- Facilities",
+      "The door is back. A different wall, same handle. Somebody knocked from the other side. It was polite.\n\n- Facilities",
+    ],
+    choices: ["Open it ({cost})", "Brick it up", "Leave it"],
+    fallback: 2,
+    cooldown: 5,
+  },
 };
+
+export const CLOCKOUT_PAY = 60;
+export const DOOR_COST = 50;
+export const DOOR_PRIZES = ["almond-water", "candy", "dumb-gum", "royal-ration"];
 
 export const VENDING_FEED = 50;
 export const VENDING_PRIZES = ["almond-water", "candy", "royal-ration", "dumb-gum"];

@@ -1,3 +1,4 @@
+import { noteGoal, setGoal } from "./goals";
 import { ITEMS } from "../data/items";
 import { SOURCE_INFO } from "../data/crew";
 import { EMPLOYEE_OF_THE_MONTH, PAYROLL, RESEARCH_DONE, TARGET_MET, TARGET_MISSED } from "../data/memos";
@@ -23,6 +24,7 @@ export function sell(state: GameState, lootId: number): boolean {
   state.loot = state.loot.filter((l) => l !== item);
   state.cash += price;
   state.ledger.unshift({ day: state.day, text: `Sold ${ITEMS[item.itemId].name}`, amount: price });
+  noteGoal(state, "earn", price);
   // Accounting pays a little extra the very first time, so day one is not a loss.
   if (!state.firstSale) {
     state.firstSale = true;
@@ -50,6 +52,7 @@ export function canEndDay(state: GameState): boolean {
 export function endDay(state: GameState): boolean {
   if (!canEndDay(state)) return false;
   resolvePending(state);
+  setGoal(state, state.day + 1); // lands under tonight's other memos
   // Whoever survived the most runs gets a plaque, if anyone went out today.
   const wentOut = state.expeditions.length > 0;
   const best = state.crew.filter((w) => w.status === "idle" && w.runs > 0).sort((a, b) => b.xp - a.xp)[0];

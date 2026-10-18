@@ -64,6 +64,8 @@ export interface GameState {
   firstSale?: boolean; // the first-sale bonus has been paid
   projects?: string[]; // office projects built, see data/projects.ts
   recovered?: number[]; // dead crew whose belongings were recovered
+  lastSeen?: number; // when the page was last open, for the away report
+  goal?: import("./goals").Goal; // the Board's goal for today
   recentLines?: string[]; // radio lines heard lately, so the crews do not repeat them
 }
 

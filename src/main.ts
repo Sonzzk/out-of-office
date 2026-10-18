@@ -1,8 +1,10 @@
+import { awayReport } from "./sim/away";
+import { newGoal } from "./sim/goals";
 import "./style.css";
 import "./ui/loop.css";
 import { loadGame, loadProblem, saveGame } from "./save";
 import { stepExpedition } from "./sim/expedition";
-import { newGame } from "./sim/state";
+import { newGame, TUTORIAL_DONE } from "./sim/state";
 import { TITLE_AWAY } from "./data/infection";
 import { infectionStage, uneaseFor } from "./sim/infection";
 import { fill } from "./sim/state";
@@ -28,6 +30,9 @@ setStage(forcedStage ?? infectionStage(state));
 const desk = document.getElementById("desk")!;
 let ready = false; // runs only advance once the desktop is up and the store has the game
 void boot(document.body, state, params.has("fast")).then(() => {
+  if (!state.goal && state.tutorial >= TUTORIAL_DONE) state.goal = newGoal(state);
+  awayReport(state, Date.now());
+  state.lastSeen = Date.now();
   saveGame(state);
   initStore(state);
   ready = true;
@@ -44,6 +49,13 @@ void boot(document.body, state, params.has("fast")).then(() => {
   if (forcedUnease === null) onChange(() => setUnease(uneaseFor(state)));
   if (forcedStage === null) onChange(() => setStage(infectionStage(state)));
 });
+
+// Remember when the page was last open, for the away report.
+setInterval(() => {
+  if (!ready) return;
+  state.lastSeen = Date.now();
+  saveGame(state);
+}, 15000);
 
 // Fourth wall: an infected office calls you back when you switch tabs.
 let awayCount = 0;

@@ -1,3 +1,4 @@
+import { noteGoal } from "./goals";
 import { CALL_GAP, CALL_OUTCOMES, CALL_TICKS, CALL_TIMEOUT, CALLS, MAX_CALLS, THREAT_LINES, THREAT_OUTCOMES, THREAT_TICKS, VENDING_PRICE, type CallDef } from "../data/calls";
 import { entityDef } from "../data/entities";
 import { ECHO_LINES, INFECTED_RADIO } from "../data/infection";
@@ -766,6 +767,8 @@ function finish(state: GameState, exp: Expedition): void {
     const note = broughtHome(state, itemId, alive[0].name);
     if (note) notes.push(note);
   }
+  noteGoal(state, "haul", loot.length);
+  noteGoal(state, "home", alive.length);
   notes.push(...checkSurvey(state, levelOf(state, exp.levelId), exp.levelId));
   notes.push(...exp.log.filter((l) => l.startsWith("Index updated") && !notes.includes(l)));
   exp.result = { survivors: alive.length, dead: dead.map((w) => w.name), loot, notes };
