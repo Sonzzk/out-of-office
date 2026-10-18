@@ -8,6 +8,7 @@ import { has } from "../sim/projects";
 import { twistToday } from "../sim/twists";
 import { esc } from "./dom";
 import { shownName } from "../privacy";
+import { clockOut, startStory } from "./ending";
 import { startFourthWall } from "./fourthwall";
 import { startGlitch } from "./glitch";
 import { startInfestation } from "./infestation";
@@ -72,6 +73,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
     dialog("Help", "Help is not available on this workstation. Have you tried working harder?", ["OK"]),
   );
   item("./art/icons/U-padlock.png", "Clock Out...", async () => {
+    if (await clockOut()) return;
     const a = await dialog("Clock Out", "You cannot clock out during a shift. Your shift ends when the work is done.", ["OK", "Cancel"]);
     if (a === "OK") dialog("Clock Out", "The work is not done.", ["OK"], "./art/icons/U-clock.png");
   });
@@ -170,6 +172,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   startGlitch(desk, () => shownName(game().bossName));
   startFourthWall(desk, game);
   startTutorial(desk);
+  startStory(desk);
 
   // An event memo that needs an answer pops up once, wherever you are.
   const announced = new Set(state.memos.map((m) => m.id));

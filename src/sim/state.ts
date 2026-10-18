@@ -70,6 +70,10 @@ export interface GameState {
   twistLast?: string; // the last twist that ran, so it does not repeat
   contracts?: import("./contracts").Contract[]; // open Board contracts
   recentLines?: string[]; // radio lines heard lately, so the crews do not repeat them
+  act?: number; // story act: 1 The Job, 2 The Cost, 3 The Exit, 4 new quarter (see sim/story.ts)
+  ending?: string; // set while an ending is on screen; cleared when the new quarter starts
+  endings?: string[]; // every ending reached so far
+  storyFlags?: Record<string, number>; // story beats sent, strange memos answered, Derek, quarter
 }
 
 export const SAVE_VERSION = 10;

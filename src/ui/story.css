@@ -1,0 +1,34 @@
+/* Story: act title cards, the desktop notes, the Exit window, the end screen. */
+.act-card { position: absolute; inset: 0; z-index: 8900; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: #050400; color: #d8cf94; text-align: center; letter-spacing: .3em; cursor: pointer; animation: act-in .6s steps(6); }
+.act-card b { font-size: 34px; font-weight: normal; }
+.act-card span { margin-top: 10px; font-size: 14px; letter-spacing: .5em; }
+.act-card small { position: absolute; bottom: 48px; font-size: 10px; letter-spacing: .1em; opacity: .5; }
+.act-card.out { opacity: 0; transition: opacity 1.2s steps(8); pointer-events: none; }
+@keyframes act-in { from { opacity: 0; } }
+
+#desk.act-2 .work { box-shadow: inset 0 0 120px rgba(40, 20, 0, .35); }
+#desk.act-3 .work { box-shadow: inset 0 0 160px rgba(0, 0, 0, .55); }
+#desk.act-3 .taskbar .start { color: var(--red); }
+.sticky-board { position: absolute; right: 18px; top: 16px; max-width: 170px; padding: 8px 10px; background: #e9e2a0; color: var(--ink);
+  font-size: 11px; line-height: 1.4; transform: rotate(1.8deg); box-shadow: 2px 2px 0 rgba(0,0,0,.4); pointer-events: none; }
+.sticky-board b { display: block; margin-bottom: 2px; }
+.ic.exit img { filter: sepia(1) hue-rotate(-30deg) saturate(3); }
+
+.exit .req { list-style: none; padding: 0; margin: 6px 0 10px; display: grid; gap: 3px; }
+.exit .req li::before { content: "[ ]  "; font-family: monospace; }
+.exit .req li.done::before { content: "[x]  "; }
+.exit .row { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+
+.ending { position: fixed; inset: 0; z-index: 12000; overflow: auto; background: #070604; color: #d8cf94; display: flex; justify-content: center;
+  align-items: flex-start; padding: 6vh 16px; animation: act-in 1.2s steps(10); }
+.ending .sheet { width: min(640px, 100%); line-height: 1.6; }
+.ending h1 { font-size: 30px; font-weight: normal; letter-spacing: .25em; margin: 0 0 4px; text-transform: uppercase; }
+.ending .kick { font-style: italic; opacity: .75; margin-bottom: 22px; }
+.ending p { margin: 0 0 14px; }
+.ending table { width: 100%; border-collapse: collapse; margin: 22px 0; font-size: 12px; }
+.ending td { padding: 4px 8px; border-bottom: 1px dotted rgba(216, 207, 148, .35); }
+.ending td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.ending .n { opacity: .6; font-size: 11px; margin-bottom: 16px; }
+.ending button { font: inherit; padding: 8px 18px; background: #d8cf94; color: #1d1a0e; border: 2px solid; border-color: #efe9cc #6d684f #6d684f #efe9cc; cursor: pointer; letter-spacing: .1em; }
+@media (prefers-reduced-motion: reduce) { .act-card, .ending { animation: none; } }

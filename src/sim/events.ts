@@ -4,6 +4,7 @@ import type { Worker } from "./crew";
 import { addHeat, addInfection } from "./office";
 import { Dice } from "./rng";
 import { fill, type GameState, type Memo } from "./state";
+import { isStoryEvent, resolveStory } from "./story";
 
 const money = (n: number) => `$${n.toLocaleString("en-US")}`;
 const EVENT_CHANCE = 0.6;
@@ -190,5 +191,5 @@ function resolve(state: GameState, m: Memo, choice: number): string {
     case "gary:1":
       return "HR replied: \"There is no Gary in Accounts. There is no Accounts.\"";
   }
-  return "";
+  return isStoryEvent(e.id) ? resolveStory(state, e.id, choice) : "";
 }
