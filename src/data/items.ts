@@ -30,6 +30,8 @@ export const ITEMS: Record<string, ItemDef> = {
   "ghost-light": { id: "ghost-light", name: "Ghost Light", art: "I16-ghost-light.png", value: 420, rarity: 1 },
   // Given to the first crew home, never lies on a floor.
   "orientation-polaroid": { id: "orientation-polaroid", name: "Orientation Polaroid", art: "I06-polaroid.png", value: 380, rarity: 0, unindexed: true },
+  // Handed over in a radio call, never found on a floor.
+  "sealed-letter": { id: "sealed-letter", name: "Sealed Letter", art: "../icons/U-envelope.png", value: 260, rarity: 0, unindexed: true },
   // Samples come off entities a crew survived, see entities.ts.
   ...Object.fromEntries(
     ENTITIES.filter((e) => e.sample > 0).map((e) => [

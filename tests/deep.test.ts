@@ -49,7 +49,7 @@ describe("deep levels", () => {
     const lamp = setup(1, "level-6", ["flashlight"]);
     for (const t of [plain, lamp]) {
       for (const r of t.exp.entities) r.cooldown = 999;
-      t.exp.callsMade = 1;
+      t.exp.callsMade = 99;
       for (let i = 0; i < 10; i++) stepExpedition(t.s, t.exp);
     }
     expect(revealed(lamp.s, "level-6")).toBeGreaterThan(revealed(plain.s, "level-6"));
@@ -59,7 +59,7 @@ describe("deep levels", () => {
     const wheat = setup(2, "level-10");
     const plain = setup(2, "level-2");
     for (const t of [wheat, plain]) {
-      t.exp.callsMade = 1;
+      t.exp.callsMade = 99;
       for (const r of t.exp.entities) r.cooldown = 999;
     }
     const before = revealed(wheat.s, "level-10");
@@ -75,7 +75,7 @@ describe("deep levels", () => {
         const t = setup(seed, "level-10", gear);
         t.s.crew.forEach((w) => (w.skills.stealth = 6));
         for (const r of t.exp.entities) r.cooldown = 99999;
-        t.exp.callsMade = 1;
+        t.exp.callsMade = 99;
         t.exp.phase = "return";
         t.exp.pos = { x: t.lv.entrance.x + 3, y: t.lv.entrance.y };
         t.exp.targets = [{ ...t.lv.entrance }];

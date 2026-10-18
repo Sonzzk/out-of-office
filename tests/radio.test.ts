@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CALL_OUTCOMES, CALLS, CALL_TIMEOUT, THREAT_LINES, THREAT_OUTCOMES } from "../src/data/calls";
 import { AMBIENT_EXTRA, LEVEL_AMBIENT, OPENERS, PASSED_MORE, SPOTTED_MORE } from "../src/data/radioMore";
 import { ENTITIES } from "../src/data/entities";
 import { LEVELS } from "../src/data/levels";
@@ -31,7 +32,11 @@ describe("radio", () => {
       for (const l of exp.log) heard.push(l.replace(/^[^:]+: /, ""));
     }
     expect(s.recentLines?.length).toBeGreaterThan(0);
-    const ambient = heard.filter((l) => !/Back at|Home|home/.test(l));
+    // Calls and threats are meant to come back; this is about the chatter.
+    const templates = [CALL_TIMEOUT, ...THREAT_LINES, ...CALLS.map((c) => c.text), ...Object.values(CALL_OUTCOMES).flat(), ...Object.values(THREAT_OUTCOMES).flat()];
+    const asRegex = (t: string) => new RegExp("^" + t.replace(/^\{n\}: /, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\{\w+\\\}/g, ".*") + "$");
+    const callLike = templates.map(asRegex);
+    const ambient = heard.filter((l) => !callLike.some((r) => r.test(l)) && !/Back at|Home|home|Index updated|HR learned|is now (Seen|Known)/.test(l));
     const repeats = ambient.length - new Set(ambient).size;
     expect(repeats / ambient.length).toBeLessThan(0.25);
   });

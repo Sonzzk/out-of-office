@@ -1,4 +1,4 @@
-import { CALL_OUTCOMES, CALL_TICKS, CALL_TIMEOUT, CALLS, VENDING_PRICE, type CallDef } from "../data/calls";
+import { CALL_GAP, CALL_OUTCOMES, CALL_TICKS, CALL_TIMEOUT, CALLS, MAX_CALLS, THREAT_LINES, THREAT_OUTCOMES, THREAT_TICKS, VENDING_PRICE, type CallDef } from "../data/calls";
 import { entityDef } from "../data/entities";
 import { INFECTED_RADIO } from "../data/infection";
 import { GEAR, gearDef } from "../data/gear";
@@ -41,6 +41,13 @@ export interface Expedition {
   wait?: number; // radio mast: how much longer calls wait
   warned?: boolean; // a Warning Kite has the crew's back for one encounter
   callsMade: number;
+  callIds?: string[]; // calls already made on this run, so none repeats
+  lastCall?: number; // tick the last call was answered
+  threat?: { id: string; asked: number }; // a deadly thing is close and the crew waits for one word
+  hold?: number; // ticks left of holding still
+  hurry?: number; // ticks left of pushing on
+  orderAt?: Record<string, number>; // tick each order is ready again
+  mod?: number; // how much a choice made just now scales the danger of the next encounter
   boss?: string; // the player's name, for radio lines that use it
   recent?: string[]; // radio lines already heard, so the crew does not repeat itself
   result?: { survivors: number; dead: string[]; loot: string[]; notes: string[] };
@@ -52,6 +59,7 @@ export interface Roamer {
   pos: Pt;
   cooldown: number; // ticks spent away after an encounter
   seen: boolean;
+  alerted?: boolean; // has already given the player a chance to react this approach
 }
 
 const VISION = 3;
@@ -229,7 +237,12 @@ function homePool(state: GameState, exp: Expedition): string[] {
   return pool;
 }
 
-const first = (w: Worker) => (w.name.startsWith("CLONE") ? w.name : w.name.split(" ")[0]);
+// Names like "Mr. Smith" are called by the second word.
+const first = (w: Worker) => {
+  if (w.name.startsWith("CLONE")) return w.name;
+  const [a, b] = w.name.split(" ");
+  return a.endsWith(".") && b ? b : a;
+};
 
 // Advance one tick: the crew moves one cell, the entity moves, things happen.
 export function stepExpedition(state: GameState, exp: Expedition): void {
@@ -259,18 +272,30 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
     });
   }
 
+  if (exp.hold) exp.hold--;
+  if (exp.hurry) exp.hurry--;
   maybeCall(state, exp, dice, crew);
-  if (exp.call) {
+  if (exp.threat) {
+    // Frozen until the office answers, or the thing arrives.
+    if (exp.tick - exp.threat.asked >= THREAT_TICKS) resolveThreat(state, exp, -1, dice);
+  } else if (exp.call) {
     // Waiting on the office. The crew holds still; the level doesn't.
     if (exp.tick - exp.call.asked >= callTicks(exp)) {
       const lead = crew.find((w) => w.id === exp.leadId) ?? crew[0];
       exp.log.push(fill(CALL_TIMEOUT, { n: first(lead) }));
       resolveCall(state, exp, callDef(exp.call.id).fallback, dice);
     }
-  } else if (!stalled) {
+  } else if (exp.hold) {
+    // Holding still: nobody moves, nobody makes noise.
+  } else if (!stalled || exp.hurry) {
     const target = exp.targets[0];
     const step = target ? findPath(lv, exp.pos, target)[0] : undefined;
     if (step) exp.pos = step;
+    // Pushing on covers two cells a tick, as long as the first did not reach the target.
+    if (exp.hurry && target && step && !(step.x === target.x && step.y === target.y)) {
+      const again = findPath(lv, exp.pos, target)[0];
+      if (again) exp.pos = again;
+    }
   } else if (dice.chance(0.2)) {
     say(exp, dice, crew, [...RADIO.LOST, ...MORE.LOST_MORE]);
   }
@@ -301,6 +326,7 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
   if (levelDef(exp.levelId).rule === "hotel") checkout(state, lv, exp, dice);
   for (const r of exp.entities) {
     if ((exp.phase as Expedition["phase"]) === "done") break;
+    if (exp.threat) continue; // everything holds its breath
     moveEntity(state, lv, exp, r, dice, members(state, exp));
   }
 
@@ -346,11 +372,14 @@ function moveEntity(state: GameState, lv: Level, exp: Expedition, r: Roamer, dic
   if (r.cooldown > 0) {
     r.cooldown--;
     r.seen = false;
+    r.alerted = false;
     return;
   }
   const def = entityDef(r.id);
   const whistler = crew.find((w) => hasQuirk(w, "whistler"));
-  const near = def.sense > 0 && dist(r.pos, exp.pos) <= def.sense + (whistler ? 2 : 0);
+  // Holding still hides you a little; pushing on is loud.
+  const sense = def.sense + (whistler ? 2 : 0) + (exp.hurry ? 2 : 0) - (exp.hold ? 2 : 0);
+  const near = def.sense > 0 && dist(r.pos, exp.pos) <= sense;
   const options = neighbors(lv, r.pos);
   const dark = (p: Pt) => lv.cells[idx(lv, p)] === DARK;
   const chase = () => {
@@ -381,7 +410,129 @@ function moveEntity(state: GameState, lv: Level, exp: Expedition, r: Roamer, dic
     if (note) exp.log.push(note);
     if (whistler && def.sense > 0) revealLine(exp, whistler, "whistler");
   }
-  if (dist(r.pos, exp.pos) <= 1) encounter(state, lv, exp, r, dice, crew);
+  // Something deadly is close: the crew freezes and the office gets one word.
+  const d = dist(r.pos, exp.pos);
+  if (d <= 2 && !r.alerted && !exp.threat && !exp.call && (def.effect === "kill" || def.effect === "lure") && crew.length) {
+    r.alerted = true;
+    exp.threat = { id: r.id, asked: exp.tick };
+    say(exp, dice, crew, THREAT_LINES);
+    return;
+  }
+  if (d <= 1) encounter(state, lv, exp, r, dice, crew);
+}
+
+// --- Threats and orders ------------------------------------------------------
+// answer: 0 hide, 1 run, 2 distract (costs the cheapest thing carried), 3 give it
+// someone, -1 nobody answered and it simply arrives.
+export function answerThreat(state: GameState, exp: Expedition, choice: number): boolean {
+  if (!exp.threat || exp.phase === "done") return false;
+  const dice = new Dice(exp.dice);
+  resolveThreat(state, exp, choice, dice);
+  exp.dice = dice.state;
+  return true;
+}
+
+export const canDistract = (exp: Expedition) => exp.carried.length > 0;
+export const canGiveSomeone = (state: GameState, exp: Expedition) => members(state, exp).length >= 2;
+
+function cheapest(exp: Expedition): number {
+  let at = 0;
+  exp.carried.forEach((id, i) => {
+    if (ITEMS[id].value < ITEMS[exp.carried[at]].value) at = i;
+  });
+  return at;
+}
+
+function resolveThreat(state: GameState, exp: Expedition, choice: number, dice: Dice): void {
+  const threat = exp.threat!;
+  exp.threat = undefined;
+  const lv = levelOf(state, exp.levelId);
+  const crew = members(state, exp);
+  if (!crew.length) return;
+  const r = exp.entities.find((e) => e.id === threat.id) ?? exp.entities[0];
+  if (!r) return;
+  const lead = crew.find((w) => w.id === exp.leadId) ?? crew[0];
+  const line = (key: keyof typeof THREAT_OUTCOMES, extra: Record<string, string> = {}) =>
+    exp.log.push(fill(dice.pick(THREAT_OUTCOMES[key]), { n: first(lead), m: first(crew.find((w) => w !== lead) ?? lead), boss: exp.boss ?? "boss", ...extra }));
+  const meets = (mod: number) => {
+    exp.mod = mod;
+    encounter(state, lv, exp, r, dice, crew);
+    exp.mod = undefined;
+  };
+  if (choice === 0) {
+    line("hide");
+    exp.hold = 6;
+    return meets(0.5);
+  }
+  if (choice === 1) {
+    // Running works if the crew knows where it is going.
+    const nav = crew.reduce((a, w) => a + skill(w, "nav"), 0) / crew.length;
+    if (dice.chance(0.45 + nav * 0.06)) {
+      line("runClean");
+      sendAway(lv, exp, r, dice);
+      return;
+    }
+    line("runCaught");
+    return meets(1.4);
+  }
+  if (choice === 2 && canDistract(exp)) {
+    const [gone] = exp.carried.splice(cheapest(exp), 1);
+    line("distract", { item: ITEMS[gone].name });
+    sendAway(lv, exp, r, dice);
+    return;
+  }
+  if (choice === 3 && crew.length >= 2) {
+    const victim = [...crew].filter((w) => w.id !== exp.leadId).sort((a, b) => a.level - b.level || a.id - b.id)[0] ?? crew[crew.length - 1];
+    line("sacrifice", { m: first(victim) });
+    addInfection(state, 3);
+    sendAway(lv, exp, r, dice);
+    return lose(state, lv, exp, r, dice, crew, victim, "{n}: We gave it {m}. We're sorry.");
+  }
+  meets(1); // no answer, or a choice that was not available
+}
+
+export type Order = "hold" | "push" | "back" | "distract";
+export const ORDER_COOLDOWN: Record<Order, number> = { hold: 14, push: 14, back: 0, distract: 20 };
+export const ORDER_LINES: Record<Order, string[]> = {
+  hold: ["{n}: Holding. Nobody move. Nobody breathe.", "{n}: Standing still. Counting ceiling tiles."],
+  push: ["{n}: Pushing on. Quick feet.", "{n}: Moving fast. Don't talk, don't trip."],
+  back: ["{n}: You're the boss. Turning around.", "{n}: Heading for the door. Your call."],
+  distract: ["{n}: Dropping the {item} behind us. Hope it likes it.", "{n}: Throwing the {item} down the hall. Goodbye, {item}."],
+};
+
+export function orderReady(exp: Expedition, order: Order, tick = exp.tick): boolean {
+  if (exp.phase === "done" || exp.call || exp.threat) return false;
+  if ((exp.orderAt?.[order] ?? 0) > tick) return false;
+  if (order === "back") return exp.phase === "in";
+  if (order === "distract") return exp.carried.length > 0 && exp.entities.length > 0;
+  return true;
+}
+
+// A standing order from the office, any time between calls.
+export function orderExpedition(state: GameState, exp: Expedition, order: Order): boolean {
+  if (!orderReady(exp, order)) return false;
+  const lv = levelOf(state, exp.levelId);
+  const crew = members(state, exp);
+  if (!crew.length) return false;
+  const dice = new Dice(exp.dice);
+  let item = "";
+  if (order === "hold") {
+    exp.hold = 10;
+    exp.hurry = 0;
+  } else if (order === "push") {
+    exp.hurry = 8;
+    exp.hold = 0;
+  } else if (order === "back") turnBack(lv, exp);
+  else {
+    const near = [...exp.entities].sort((a, b) => dist(a.pos, exp.pos) - dist(b.pos, exp.pos))[0];
+    const [gone] = exp.carried.splice(cheapest(exp), 1);
+    item = ITEMS[gone].name;
+    sendAway(lv, exp, near, dice);
+  }
+  (exp.orderAt ??= {})[order] = exp.tick + ORDER_COOLDOWN[order];
+  say(exp, dice, crew, ORDER_LINES[order], item ? { item } : {});
+  exp.dice = dice.state;
+  return true;
 }
 
 // Send an entity away after an encounter so it doesn't hit twice in a row.
@@ -482,7 +633,7 @@ export function encounter(state: GameState, lv: Level, exp: Expedition, r: Roame
         return passed();
       }
       const victim = [...crew].sort((a, b) => skill(a, def.check!) - skill(b, def.check!))[0];
-      const p = Math.max(0.03, def.base! - skill(victim, def.check!) * def.per!) * (mastered ? 0.5 : 1) * depthMult;
+      const p = Math.max(0.03, def.base! - skill(victim, def.check!) * def.per!) * (mastered ? 0.5 : 1) * depthMult * (exp.mod ?? 1);
       if (!dice.chance(p)) return passed();
       return lose(state, lv, exp, r, dice, crew, victim, def.outcome);
     }
@@ -505,7 +656,7 @@ export function encounter(state: GameState, lv: Level, exp: Expedition, r: Roame
         if (hasQuirk(w, "coward") && crew.length > 1) return false;
         let p = Math.max(0.03, def.base! - skill(w, def.check!) * def.per!);
         if (mastered) p /= 2;
-        p *= depthMult;
+        p *= depthMult * (exp.mod ?? 1);
         const roll = dice.next();
         if (hasQuirk(w, "lucky") && roll < p && roll >= p / 2) {
           revealLine(exp, w, "lucky");
@@ -629,15 +780,22 @@ export const callTicks = (exp: Expedition) => Math.round(CALL_TICKS * (exp.gear.
 const callDef = (id: string): CallDef => CALLS.find((c) => c.id === id)!;
 
 function maybeCall(state: GameState, exp: Expedition, dice: Dice, crew: Worker[]): void {
-  if (exp.call || exp.callsMade || exp.phase !== "in" || exp.tick < 8 || !dice.chance(0.12)) return;
+  if (exp.call || exp.threat || exp.phase === "done" || exp.tick < 8 || exp.callsMade >= MAX_CALLS) return;
+  if (exp.tick - (exp.lastCall ?? -CALL_GAP) < CALL_GAP || !dice.chance(0.2)) return;
   const options = CALLS.filter(
-    (c) => (!c.only || c.only === exp.levelId) && (c.needs === "pair" ? crew.length >= 2 : c.needs === "loot" ? exp.carried.length > 0 : true),
+    (c) =>
+      (!c.only || c.only === exp.levelId) &&
+      !(c.outbound && exp.phase !== "in") &&
+      !(exp.callIds ?? []).includes(c.id) &&
+      (c.needs === "pair" ? crew.length >= 2 : c.needs === "loot" ? exp.carried.length > 0 : true),
   );
+  if (!options.length) return;
   const def = dice.pick(options);
   const caller = dice.pick(crew);
   const other = crew.length > 1 ? dice.pick(crew.filter((w) => w !== caller)) : caller;
   exp.call = { id: def.id, asked: exp.tick, m: other.id };
   exp.callsMade++;
+  (exp.callIds ??= []).push(def.id);
   exp.log.push(fill(def.text, { n: first(caller), m: first(other), price: `$${VENDING_PRICE}` }));
 }
 
@@ -653,6 +811,7 @@ export function answerCall(state: GameState, exp: Expedition, choice: number): b
 function resolveCall(state: GameState, exp: Expedition, choice: number, dice: Dice): void {
   const call = exp.call!;
   exp.call = undefined;
+  exp.lastCall = exp.tick;
   const lv = levelOf(state, exp.levelId);
   const crew = members(state, exp);
   const lead = crew.find((w) => w.id === exp.leadId) ?? crew[0];
@@ -718,7 +877,109 @@ function resolveCall(state: GameState, exp: Expedition, choice: number, dice: Di
     state.cash += pay;
     state.ledger.unshift({ day: state.day, text: `Traded ${ITEMS[item].name} to a rival crew`, amount: pay });
     line("trade", { item: ITEMS[item].name });
+  } else if (call.id === "door") {
+    if (choice === 1) return void line("pass");
+    const roll = dice.next();
+    if (roll < 0.5) {
+      const item = floorItem();
+      exp.carried.push(item);
+      line("loot", { item: ITEMS[item].name });
+    } else if (roll < 0.8) line("empty");
+    else {
+      line("woke");
+      wakeNearest(lv, exp, dice);
+    }
+  } else if (call.id === "voice") {
+    if (choice === 1) {
+      exp.nextChatter = exp.tick + 20; // a quiet stretch
+      return void line("cut");
+    }
+    reveal(state, lv, exp.levelId, exp.pos, 6);
+    addInfection(state, 2);
+    line("answer");
+  } else if (call.id === "fork") {
+    if (choice === 0) return void line("lit");
+    reveal(state, lv, exp.levelId, exp.pos, 5);
+    const taken = state.takenToday[exp.levelId];
+    const seen = lv.loot.map((l, i) => ({ l, i })).filter(({ l, i }) => !taken.includes(i) && dist(l.at, exp.pos) <= 7).slice(0, 1);
+    for (const { l } of seen) exp.targets.unshift({ ...l.at });
+    if (seen.length) line("darkgood", { item: ITEMS[seen[0].l.itemId].name });
+    else {
+      line("dark");
+      wakeNearest(lv, exp, dice);
+    }
+  } else if (call.id === "sleeper") {
+    if (choice === 1) return void line("leave");
+    if (dice.chance(0.5)) {
+      const item = floorItem();
+      exp.carried.push(item);
+      line("item", { item: ITEMS[item].name });
+    } else {
+      line("noise");
+      wakeNearest(lv, exp, dice);
+    }
+  } else if (call.id === "elevator") {
+    if (choice === 1) {
+      exp.hold = 4; // the stairs take a while
+      return void line("stairs");
+    }
+    const far = [];
+    for (let y = 0; y < lv.h; y++) for (let x = 0; x < lv.w; x++) if (lv.cells[y * lv.w + x] !== WALL && dist({ x, y }, exp.pos) >= 6 && dist({ x, y }, exp.pos) <= 12) far.push({ x, y });
+    if (far.length) exp.pos = dice.pick(far);
+    reveal(state, lv, exp.levelId, exp.pos, 6);
+    addInfection(state, 2);
+    line("ride");
+  } else if (call.id === "coworker") {
+    if (choice === 1) return void line("decline");
+    exp.carried.push("sealed-letter");
+    addInfection(state, 2);
+    line("take");
+  } else if (call.id === "supply") {
+    if (choice === 1) return void line("leave");
+    if (!exp.gear.includes("firstaid")) exp.gear.push("firstaid");
+    if (dice.chance(0.3)) {
+      line("alarm");
+      wakeNearest(lv, exp, dice);
+    } else line("take");
+  } else if (call.id === "payphone") {
+    if (choice === 1 || state.cash < 60) return void line("hang");
+    state.cash -= 60;
+    state.ledger.unshift({ day: state.day, text: "Collect call from the office", amount: -60 });
+    addHeat(state, -5);
+    line("accept");
+  } else if (call.id === "mirror") {
+    if (choice === 1) {
+      exp.hold = 3;
+      return void line("cover");
+    }
+    reveal(state, lv, exp.levelId, exp.pos, 8);
+    addInfection(state, 3);
+    if (dice.chance(0.4)) {
+      const item = floorItem();
+      exp.carried.push(item);
+      line("item", { item: ITEMS[item].name });
+    } else line("look");
+  } else if (call.id === "shortcut") {
+    if (choice === 1) return void line("around");
+    const target = exp.targets[0];
+    const path = target ? findPath(lv, exp.pos, target) : [];
+    if (path.length > 4) exp.pos = path[Math.min(path.length - 1, 5)];
+    reveal(state, lv, exp.levelId, exp.pos);
+    if (crew.length > 1 && dice.chance(0.3)) {
+      exp.hold = 5;
+      line("stuck");
+    } else line("through");
   }
+}
+
+// Whatever lives closest wakes up and comes to see.
+function wakeNearest(lv: Level, exp: Expedition, dice: Dice): void {
+  const near = [...exp.entities].sort((a, b) => dist(a.pos, exp.pos) - dist(b.pos, exp.pos))[0];
+  if (!near) return;
+  const cells = neighbors(lv, exp.pos).flatMap((p) => neighbors(lv, p)).filter((p) => dist(p, exp.pos) >= 3);
+  if (cells.length) near.pos = dice.pick(cells);
+  near.cooldown = 0;
+  near.alerted = false;
 }
 
 // The finished expedition stays visible as a debrief until the next one starts.

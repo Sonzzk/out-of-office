@@ -178,3 +178,12 @@
 .sticky-memorial b { display: block; margin-bottom: 3px; text-transform: uppercase; letter-spacing: .08em; }
 .p-cage .taskbar { border-top: 4px solid transparent; border-image: repeating-linear-gradient(135deg, #f2c200 0 8px, #1b1b1b 8px 16px) 4; }
 .p-corner .win:not(.dialog) { box-shadow: inset 0 0 0 2px #8a5a2b, inset 0 0 0 3px #c89a5a; }
+
+/* Orders row and the threat prompt */
+.orders { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin: 4px 0; font-size: 11px; }
+.orders .btn { padding: 2px 8px; font-size: 11px; }
+.orders .btn.cool { opacity: .6; }
+.call.threat { border-color: #a02020; animation: threatpulse .5s steps(2) infinite; }
+.call.threat .timer i { background: #a02020; }
+@keyframes threatpulse { 50% { box-shadow: 0 0 0 2px #a02020; } }
+@media (prefers-reduced-motion: reduce) { .call.threat { animation: none; } }

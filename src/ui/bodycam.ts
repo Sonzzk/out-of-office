@@ -156,6 +156,15 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput): Bodyc
       glanceUntil = now + 450 + Math.random() * 700;
       nextGlance = glanceUntil + (2200 + Math.random() * 4500) / nervy;
     }
+    // A threat has the whole head turned to it.
+    if (exp.threat && !done) {
+      const r = exp.entities.find((e) => e.id === exp.threat!.id);
+      if (r) {
+        glance = rotate(Math.atan2(r.pos.y - p.y, r.pos.x - p.x) - heading);
+        glanceUntil = now + 400;
+        nextGlance = glanceUntil + 1500;
+      }
+    }
     const looking = now < glanceUntil;
     const drift = moving || done ? 0 : Math.sin(now / 1300) * 0.25;
     const shake = Math.sin(now / 37) * 0.006 + Math.sin(now / 91) * 0.01;
@@ -304,7 +313,7 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput): Bodyc
     // Sprites: entities and loot that are in sight, far to near.
     type Spr = { x: number; y: number; src: string; scale: number; lift: number; thing: "entity" | "loot"; wob: number };
     const sprites: Spr[] = [];
-    danger = 0;
+    danger = exp.threat ? 1 : 0;
     if (!done) {
       for (const r of exp.entities) {
         const d = Math.hypot(r.pos.x - p.x, r.pos.y - p.y);
