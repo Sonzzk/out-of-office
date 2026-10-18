@@ -2,7 +2,7 @@ import { entityDef } from "../data/entities";
 import { ITEMS } from "../data/items";
 import type { Expedition } from "../sim/expedition";
 import { DARK, WALL, type Level, type Pt } from "../sim/level";
-import { sfx } from "./audio";
+import { isCalm, sfx } from "./audio";
 
 // A live first-person view from the lead's body camera. It is a small raycaster
 // over the same level grid the sim walks, drawn at a low resolution and dressed
@@ -93,6 +93,8 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput, opts: 
   let lastBeat = 0;
   const spotted = new Set<string>();
   let stopped = false;
+  let cutUntil = 0; // deep in the infection the feed sometimes shows somewhere you have not sent anyone
+  let nextCut = performance.now() + (location.search.includes("cutaway") ? 2000 : 20000 + Math.random() * 20000); // ?cutaway for play-tests
 
   const rotate = (d: number) => Math.atan2(Math.sin(d), Math.cos(d));
 
@@ -380,6 +382,23 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput, opts: 
     const stage = input.infection;
     const jitter = Math.random() < 0.02 + danger * 0.08 + stage / 2500 ? (Math.random() - 0.5) * 6 : 0;
     out.drawImage(buf, 0, 0, W, H, jitter, 0, OUT_W, OUT_H);
+    // Stage four: for a second or two the picture is the office. Your office.
+    if (!done && input.infection >= 80 && !isCalm()) {
+      if (now > nextCut) {
+        cutUntil = now + 1100 + Math.random() * 900;
+        nextCut = cutUntil + 30000 + Math.random() * 40000;
+        sfx("growl");
+      }
+    }
+    const cut = now < cutUntil;
+    if (cut) {
+      const art = image("./art/levels/L04-empty-open-plan.png");
+      if (art.complete && art.naturalWidth) out.drawImage(art, 0, 0, OUT_W, OUT_H);
+      else {
+        out.fillStyle = "#222";
+        out.fillRect(0, 0, OUT_W, OUT_H);
+      }
+    }
 
     // Tint toward the cold green of cheap sensors; red creeps in when something is near.
     out.globalCompositeOperation = "multiply";
@@ -439,12 +458,12 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput, opts: 
       out.fill();
     }
     text(done ? "NO SIGNAL" : "REC", 24, 8);
-    text(`CAM ${String(exp.id % 100).padStart(2, "0")}`, OUT_W - 10, 8, "right");
-    text(input.operator.toUpperCase(), 10, OUT_H - 36);
+    text(cut ? "CAM 00" : `CAM ${String(exp.id % 100).padStart(2, "0")}`, OUT_W - 10, 8, "right");
+    text(cut ? "NOBODY" : input.operator.toUpperCase(), 10, OUT_H - 36);
     const secs = Math.floor(exp.tick * 2.2);
     const clock = `L${input.depth}  T+${String(Math.floor(secs / 60)).padStart(2, "0")}:${String(secs % 60).padStart(2, "0")}`;
     text(clock, 10, OUT_H - 20);
-    text(input.levelName.toUpperCase().slice(0, 18), OUT_W - 10, OUT_H - 20, "right");
+    text(cut ? "YOUR OFFICE" : input.levelName.toUpperCase().slice(0, 18), OUT_W - 10, OUT_H - 20, "right");
     if (exp.call) text("AWAITING ORDERS", OUT_W / 2, 26, "center");
     if (done) {
       out.fillStyle = "rgba(0,0,0,0.35)";

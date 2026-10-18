@@ -48,3 +48,47 @@ describe("infection", () => {
     expect(m.infectionSeen).toBe(0);
   });
 });
+
+describe("the infection writes back", () => {
+  it("sends a memo from the dead once stage two arrives, and nightly at stage four", async () => {
+    const { newGame } = await import("../src/sim/state");
+    const { nightInfection } = await import("../src/sim/infection");
+    const { hire } = await import("../src/sim/crew");
+    const s = newGame(5, "Amos");
+    for (const w of s.pool.slice(0, 2)) { s.cash += w.cost; hire(s, w.id); }
+    s.crew[0].status = "dead";
+    s.crew[0].lastWords = "Tell them I tried.";
+    s.infection = 45;
+    const before = s.memos.length;
+    nightInfection(s);
+    expect(s.memos.length).toBeGreaterThan(before);
+    expect(s.memos.some((m) => m.from === s.crew[0].name)).toBe(true);
+    s.infection = 90;
+    for (let d = 0; d < 3; d++) {
+      s.day++;
+      const n = s.memos.filter((m) => m.from === s.crew[0].name).length;
+      nightInfection(s);
+      expect(s.memos.filter((m) => m.from === s.crew[0].name).length).toBe(n + 1);
+    }
+  });
+
+  it("makes the radio answer in the boss's voice at stage three", async () => {
+    const { newGame } = await import("../src/sim/state");
+    const { hire } = await import("../src/sim/crew");
+    const { startExpedition, answerCall } = await import("../src/sim/expedition");
+    let heard = 0;
+    for (let seed = 1; seed <= 80; seed++) {
+      const s = newGame(seed, "Amos");
+      s.catchphrase = "Rise and grind";
+      s.infection = 70;
+      s.cash = 2000;
+      for (const w of s.pool.slice(0, 2)) hire(s, w.id);
+      const exp = startExpedition(s, s.crew.map((w) => w.id), { x: 25, y: 5 })!;
+      exp.call = { id: "door", asked: 0, m: exp.crewIds[1] };
+      answerCall(s, exp, 1);
+      if (exp.log.some((l) => /in your voice|say it again|replied in your voice/.test(l))) heard++;
+    }
+    expect(heard).toBeGreaterThan(5);
+    expect(heard).toBeLessThan(45);
+  });
+});
