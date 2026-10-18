@@ -4,6 +4,7 @@
 // from the boot screen's button.
 
 import { isStreamer } from "../privacy";
+import { LEVELS, type LevelStyle } from "../data/levels";
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -58,6 +59,7 @@ export function setCalm(on: boolean): void {
   } catch {
     // ignore
   }
+  if (ctx && bed) bed.gain.gain.setTargetAtTime(bedLevel(bed), ctx.currentTime, 0.5);
 }
 
 /** How wrong the muzak is allowed to sound, 0..1. Calm mode caps it low. */
@@ -137,6 +139,14 @@ export function startAudio(): void {
   noise.start();
 
   startMuzak();
+
+  bedBus = ctx.createGain();
+  bedBus.connect(master);
+  pulseBus = ctx.createGain();
+  pulseBus.connect(master);
+  window.setInterval(tickBeds, 400);
+  window.setInterval(tickPulse, 200);
+  setAmbience(wantedBed);
 }
 
 // Lobby muzak: a lazy four-chord loop on soft triangles. As the infection
@@ -245,11 +255,39 @@ export function humFlicker(ms: number): void {
   sfx("tick");
 }
 
-type Sfx = "click" | "open" | "close" | "ding" | "tick" | "type" | "memo" | "key" | "return" | "squelch" | "step" | "thump" | "growl";
+type Sfx = "click" | "open" | "close" | "ding" | "tick" | "type" | "memo" | "key" | "return" | "squelch" | "step" | "thump" | "growl" | "call-bell";
 
-export function sfx(kind: Sfx): void {
+/** pan: -1 (left) to 1 (right). gain: 0..1, scales the cue. Both are optional. */
+export interface SfxOptions {
+  pan?: number;
+  gain?: number;
+}
+
+// Where tone() and burst() send their sound: the master bus, or the panned
+// and scaled bus of the cue being played right now.
+let sink: AudioNode | null = null;
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Number.isFinite(v) ? v : 0));
+
+export function sfx(kind: Sfx, opts?: SfxOptions): void {
   if (!ctx || !master) return;
-  const t = ctx.currentTime;
+  if (!opts || (opts.pan === undefined && opts.gain === undefined)) return play(kind);
+  const g = ctx.createGain();
+  g.gain.value = clamp(opts.gain ?? 1, 0, 1);
+  if (opts.pan) {
+    const p = ctx.createStereoPanner();
+    p.pan.value = clamp(opts.pan, -1, 1);
+    g.connect(p).connect(master);
+  } else g.connect(master);
+  sink = g;
+  try {
+    play(kind);
+  } finally {
+    sink = null;
+  }
+}
+
+function play(kind: Sfx): void {
+  const t = ctx!.currentTime;
   switch (kind) {
     case "click":
     case "type":
@@ -293,6 +331,13 @@ export function sfx(kind: Sfx): void {
       tone(t, 880, 0.35, 0.06);
       tone(t, 1320, 0.25, 0.025);
       break;
+    case "call-bell": // a desk bell two rooms away: someone on the radio wants an answer
+      for (const at of [0, 0.3]) {
+        bell(t + at, 1568, 0.9, 0.02);
+        bell(t + at, 2349, 0.5, 0.007);
+        bell(t + at, 4186, 0.25, 0.003);
+      }
+      break;
     case "memo":
       tone(t, 660, 0.12, 0.05);
       tone(t + 0.14, 660, 0.12, 0.05);
@@ -308,7 +353,19 @@ function tone(t: number, freq: number, dur: number, level: number): void {
   const g = ctx!.createGain();
   g.gain.setValueAtTime(level, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  osc.connect(g).connect(master!);
+  osc.connect(g).connect(sink ?? master!);
+  osc.start(t);
+  osc.stop(t + dur + 0.02);
+}
+
+function bell(t: number, freq: number, dur: number, level: number): void {
+  const osc = ctx!.createOscillator();
+  osc.frequency.value = freq;
+  const g = ctx!.createGain();
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(level, t + 0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.connect(g).connect(sink ?? master!);
   osc.start(t);
   osc.stop(t + dur + 0.02);
 }
@@ -322,7 +379,7 @@ function burst(t: number, dur: number, freq: number, level: number): void {
   const g = ctx!.createGain();
   g.gain.setValueAtTime(level, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  src.connect(bp).connect(g).connect(master!);
+  src.connect(bp).connect(g).connect(sink ?? master!);
   src.start(t);
 }
 
@@ -331,4 +388,440 @@ function noiseBuffer(ac: AudioContext, seconds: number): AudioBuffer {
   const data = buf.getChannelData(0);
   for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
   return buf;
+}
+
+// --- Ambience beds -------------------------------------------------------
+// One very quiet bed per level style, built from looped noise, a few
+// oscillators and sparse one-shot events. setAmbience() fades the old bed out
+// while the new one fades in, so there is never a click or a gap.
+
+let bedBus: GainNode | null = null;
+let pulseBus: GainNode | null = null;
+let wantedBed: string | null = null; // asked for before the audio engine started
+let bed: Bed | null = null;
+let bedNoiseBuf: AudioBuffer | null = null;
+
+interface Bed {
+  style: LevelStyle;
+  gain: GainNode;
+  trim: number;
+  sources: AudioScheduledSourceNode[];
+  events: { min: number; max: number; at: number; fire: (t: number) => void }[];
+  dead: boolean;
+}
+
+/** Test hook: the nodes the beds and the pulse play through. */
+export function debugAudio() {
+  return {
+    ctx,
+    master,
+    bedBus,
+    pulseBus,
+    bedStyle: bed?.style ?? null,
+    /** Fire every one-shot of the current bed right now. */
+    fireBedEvents: () => bed?.events.forEach((e) => e.fire(ctx!.currentTime + 0.05)),
+  };
+}
+
+const bedLevel = (b: Bed) => b.trim * (calm ? 0.6 : 1);
+const rand = (a: number, b: number) => a + Math.random() * (b - a);
+const side = () => (Math.random() < 0.5 ? -1 : 1) * rand(0.2, 0.9);
+
+/** Fade the ambience to the bed for this level (null: silence). Safe to call before the engine starts. */
+export function setAmbience(levelId: string | null): void {
+  wantedBed = levelId;
+  if (!ctx || !bedBus) return;
+  const style = LEVELS.find((l) => l.id === levelId)?.style ?? null;
+  if (bed && bed.style === style) return;
+  if (bed) retire(bed);
+  bed = null;
+  if (!style) return;
+  const b: Bed = { style, gain: ctx.createGain(), trim: BED_TRIM[style], sources: [], events: [], dead: false };
+  b.gain.gain.value = 0;
+  b.gain.connect(bedBus);
+  BEDS[style](b);
+  b.gain.gain.setTargetAtTime(bedLevel(b), ctx.currentTime, 1.6);
+  bed = b;
+}
+
+function retire(b: Bed): void {
+  b.dead = true;
+  const c = ctx!;
+  b.gain.gain.cancelScheduledValues(c.currentTime);
+  b.gain.gain.setTargetAtTime(0, c.currentTime, 1.2);
+  window.setTimeout(() => {
+    for (const s of b.sources) {
+      try {
+        s.stop();
+      } catch {
+        // already stopped
+      }
+    }
+    b.gain.disconnect();
+  }, 9000);
+}
+
+function tickBeds(): void {
+  if (!ctx || !bed) return;
+  const now = ctx.currentTime;
+  for (const e of bed.events) {
+    if (e.at > now) continue;
+    // Muted or in a background tab: keep time, but make no sounds nobody can hear.
+    if (!muted && !document.hidden) e.fire(now + 0.05);
+    e.at = now + rand(e.min, e.max);
+  }
+}
+
+// Building blocks. Every one of them sends into the bed's own gain.
+function bedNoise(): AudioBuffer {
+  return (bedNoiseBuf ??= noiseBuffer(ctx!, 5));
+}
+
+function hiss(b: Bed, type: BiquadFilterType, freq: number, q: number, level: number, dest: AudioNode = b.gain) {
+  const src = ctx!.createBufferSource();
+  src.buffer = bedNoise();
+  src.loop = true;
+  const f = ctx!.createBiquadFilter();
+  f.type = type;
+  f.frequency.value = freq;
+  f.Q.value = q;
+  const g = ctx!.createGain();
+  g.gain.value = level;
+  src.connect(f).connect(g).connect(dest);
+  src.start(0, Math.random() * 4);
+  b.sources.push(src);
+  return { f, g };
+}
+
+function drone(b: Bed, type: OscillatorType, freq: number, level: number, dest: AudioNode = b.gain) {
+  const o = ctx!.createOscillator();
+  o.type = type;
+  o.frequency.value = freq;
+  const g = ctx!.createGain();
+  g.gain.value = level;
+  o.connect(g).connect(dest);
+  o.start();
+  b.sources.push(o);
+  return { o, g };
+}
+
+/** A slow wobble on any parameter. */
+function sway(b: Bed, param: AudioParam, rate: number, depth: number): void {
+  const o = ctx!.createOscillator();
+  o.frequency.value = rate;
+  const g = ctx!.createGain();
+  g.gain.value = depth;
+  o.connect(g).connect(param);
+  o.start();
+  b.sources.push(o);
+}
+
+function every(b: Bed, min: number, max: number, fire: (t: number) => void): void {
+  b.events.push({ min, max, at: ctx!.currentTime + rand(1, min), fire });
+}
+
+function place(pan: number | undefined, dest: AudioNode): AudioNode {
+  if (!pan) return dest;
+  const p = ctx!.createStereoPanner();
+  p.pan.value = clamp(pan, -1, 1);
+  p.connect(dest);
+  return p;
+}
+
+interface Shot {
+  freq: number;
+  to?: number;
+  dur: number;
+  level: number;
+  attack?: number;
+  q?: number;
+  pan?: number;
+  type?: OscillatorType | BiquadFilterType;
+  dest?: AudioNode;
+}
+
+function envelope(g: GainNode, t: number, o: Shot): void {
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(o.level, t + (o.attack ?? 0.006));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
+}
+
+/** A pitched blip: a drip, a ding, a squeak. */
+function ping(b: Bed, t: number, o: Shot): void {
+  const osc = ctx!.createOscillator();
+  osc.type = (o.type as OscillatorType) ?? "sine";
+  osc.frequency.setValueAtTime(o.freq, t);
+  if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + o.dur);
+  const g = ctx!.createGain();
+  envelope(g, t, o);
+  osc.connect(g).connect(place(o.pan, o.dest ?? b.gain));
+  osc.start(t);
+  osc.stop(t + o.dur + 0.05);
+}
+
+/** A filtered puff of noise: a thud, a tick, a clink, a splash. */
+function puff(b: Bed, t: number, o: Shot): void {
+  const src = ctx!.createBufferSource();
+  src.buffer = bedNoise();
+  const f = ctx!.createBiquadFilter();
+  f.type = (o.type as BiquadFilterType) ?? "bandpass";
+  f.frequency.value = o.freq;
+  f.Q.value = o.q ?? 1;
+  const g = ctx!.createGain();
+  envelope(g, t, o);
+  src.connect(f).connect(g).connect(place(o.pan, o.dest ?? b.gain));
+  src.start(t, Math.random() * 4);
+  src.stop(t + o.dur + 0.05);
+}
+
+/** A send that repeats and darkens: the warehouse, the cave. Returns the input. */
+function echo(b: Bed, delay: number, feedback: number, dark: number, wet: number): GainNode {
+  const input = ctx!.createGain();
+  const d = ctx!.createDelay(2);
+  d.delayTime.value = delay;
+  const f = ctx!.createBiquadFilter();
+  f.type = "lowpass";
+  f.frequency.value = dark;
+  const fb = ctx!.createGain();
+  fb.gain.value = feedback;
+  const w = ctx!.createGain();
+  w.gain.value = wet;
+  input.connect(b.gain);
+  input.connect(d);
+  d.connect(f);
+  f.connect(fb).connect(d);
+  f.connect(w).connect(b.gain);
+  return input;
+}
+
+/** Overall loudness of each bed (they differ a lot in raw noise energy). */
+const BED_TRIM: Record<LevelStyle, number> = {
+  halls: 0.044, aisles: 0.039, pipes: 0.069, machines: 0.054, openplan: 0.072,
+  hotel: 0.049, flooded: 0.056, caves: 0.09, streets: 0.058, field: 0.031,
+};
+
+const BEDS: Record<LevelStyle, (b: Bed) => void> = {
+  // Wet carpet room-tone, a door a long way off.
+  halls(b) {
+    const room = hiss(b, "lowpass", 260, 0.6, 2.2);
+    sway(b, room.f.frequency, 0.05, 70);
+    drone(b, "sine", 58, 0.05);
+    const air = hiss(b, "bandpass", 1100, 0.7, 0.25);
+    sway(b, air.g.gain, 0.07, 0.12);
+    every(b, 24, 50, (t) => {
+      const pan = side();
+      puff(b, t, { type: "lowpass", freq: 150, dur: 0.4, level: 1.2, attack: 0.012, pan });
+      puff(b, t + 0.3, { freq: 1900, q: 3, dur: 0.06, level: 0.25, pan });
+    });
+  },
+  // A big empty room: low rumble and clanks that come back around.
+  aisles(b) {
+    const rumble = hiss(b, "lowpass", 130, 0.7, 1.7);
+    sway(b, rumble.f.frequency, 0.04, 40);
+    hiss(b, "bandpass", 900, 0.4, 0.9);
+    hiss(b, "highpass", 3200, 0.5, 0.07);
+    const verb = echo(b, 0.43, 0.55, 1300, 0.7);
+    every(b, 7, 16, (t) => {
+      const pan = side();
+      ping(b, t, { freq: rand(650, 1100), dur: 0.5, level: 0.07, type: "triangle", pan, dest: verb });
+      puff(b, t, { freq: 2400, q: 4, dur: 0.05, level: 0.2, pan, dest: verb });
+    });
+  },
+  // Water in the walls.
+  pipes(b) {
+    const flow = hiss(b, "bandpass", 300, 0.8, 1.2);
+    sway(b, flow.g.gain, 0.09, 0.5);
+    drone(b, "sine", 46, 0.06);
+    const verb = echo(b, 0.21, 0.4, 2600, 0.5);
+    every(b, 1.4, 4.5, (t) => ping(b, t, { freq: rand(1500, 2600), to: rand(700, 1000), dur: 0.09, level: 0.12, pan: side(), dest: verb }));
+    every(b, 6, 15, (t) => {
+      const pan = side();
+      puff(b, t, { freq: 3200, q: 9, dur: 0.04, level: 0.3, pan });
+      ping(b, t + 0.01, { freq: 190, to: 150, dur: 0.18, level: 0.14, pan, type: "triangle" });
+    });
+  },
+  // A machine room: mains drone, a slow beat between two motors, clanks.
+  machines(b) {
+    const lp = ctx!.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 420;
+    lp.connect(b.gain);
+    drone(b, "sawtooth", 60, 0.1, lp);
+    drone(b, "sawtooth", 60.6, 0.08, lp);
+    drone(b, "square", 120.9, 0.03, lp);
+    const g = drone(b, "sine", 30, 0.16);
+    sway(b, g.g.gain, 0.2, 0.04);
+    hiss(b, "lowpass", 600, 0.5, 0.55);
+    every(b, 5, 12, (t) => {
+      const pan = side();
+      puff(b, t, { freq: 780, q: 2.5, dur: 0.18, level: 0.5, pan });
+      for (const [i, f] of [220, 341, 587].entries()) ping(b, t, { freq: f, dur: 0.45 - i * 0.1, level: 0.09, pan, type: "triangle" });
+    });
+  },
+  // Almost nobody here. Somebody typing, a long way away.
+  openplan(b) {
+    const room = hiss(b, "lowpass", 420, 0.5, 1.1);
+    sway(b, room.f.frequency, 0.06, 90);
+    hiss(b, "highpass", 5200, 0.5, 0.04);
+    every(b, 7, 18, (t) => {
+      const pan = side();
+      let at = t;
+      for (let i = 0, n = Math.floor(rand(4, 12)); i < n; i++) {
+        puff(b, at, { freq: rand(2200, 3600), q: 2, dur: 0.025, level: rand(0.1, 0.22), pan });
+        at += rand(0.07, 0.24) * (Math.random() < 0.15 ? 3 : 1);
+      }
+    });
+    every(b, 16, 38, (t) => {
+      const f = rand(780, 1100);
+      ping(b, t, { freq: f, to: f * 1.45, dur: 0.28, level: 0.05, attack: 0.05, type: "sawtooth", pan: side(), dest: squeakFilter() });
+    });
+  },
+  // Warm corridor hum, a lift that dings, a television through the wall.
+  hotel(b) {
+    const room = hiss(b, "lowpass", 300, 0.6, 1.8);
+    sway(b, room.f.frequency, 0.05, 50);
+    drone(b, "sine", 110, 0.05);
+    const muffle = ctx!.createBiquadFilter();
+    muffle.type = "lowpass";
+    muffle.frequency.value = 2300;
+    muffle.connect(b.gain);
+    // Voices: noise through two formant-ish bands, chopped at speech speed.
+    const tv = ctx!.createGain();
+    tv.gain.value = 0.5;
+    sway(b, tv.gain, 3.7, 0.3);
+    sway(b, tv.gain, 0.37, 0.2);
+    hiss(b, "bandpass", 640, 1.6, 0.9, tv);
+    hiss(b, "bandpass", 1650, 2, 0.5, tv);
+    tv.connect(place(-0.6, muffle));
+    every(b, 28, 55, (t) => {
+      const pan = side();
+      ping(b, t, { freq: 988, dur: 1.5, level: 0.06, pan, dest: muffle });
+      ping(b, t + 0.55, { freq: 784, dur: 1.9, level: 0.06, pan, dest: muffle });
+    });
+  },
+  // Standing water: a swell that laps, the odd drip.
+  flooded(b) {
+    const lap = hiss(b, "lowpass", 480, 0.7, 1);
+    sway(b, lap.g.gain, 0.16, 0.8);
+    sway(b, lap.f.frequency, 0.11, 120);
+    const slosh = hiss(b, "bandpass", 900, 1.5, 0.15);
+    sway(b, slosh.g.gain, 0.23, 0.12);
+    hiss(b, "lowpass", 90, 0.5, 1.5);
+    every(b, 3, 8, (t) => puff(b, t, { type: "lowpass", freq: rand(500, 900), dur: 1.6, level: 0.8, attack: 0.4, pan: side() }));
+    every(b, 5, 12, (t) => ping(b, t, { freq: rand(500, 800), to: rand(250, 350), dur: 0.14, level: 0.1, pan: side() }));
+  },
+  // Wind finding its way along rock, drips that fall a long way.
+  caves(b) {
+    const w1 = hiss(b, "bandpass", 340, 2.5, 1.4);
+    sway(b, w1.f.frequency, 0.08, 120);
+    const w2 = hiss(b, "bandpass", 760, 3, 0.6);
+    sway(b, w2.f.frequency, 0.05, 220);
+    sway(b, w2.g.gain, 0.06, 0.3);
+    const verb = echo(b, 0.52, 0.6, 1800, 0.8);
+    every(b, 3.5, 9, (t) => ping(b, t, { freq: rand(900, 1700), to: rand(450, 700), dur: 0.1, level: 0.1, pan: side(), dest: verb }));
+  },
+  // Night: crickets in the verge, a siren somewhere else.
+  streets(b) {
+    hiss(b, "bandpass", 420, 0.4, 0.9);
+    const mix = ctx!.createGain();
+    mix.gain.value = 0.05;
+    mix.connect(b.gain);
+    for (const [f, rate, gate, pan] of [[4300, 31, 1.9, -0.5], [4720, 27, 2.4, 0.4], [3900, 34, 1.4, 0.1]] as const) {
+      // The carrier is chopped fast (the trill) and then in groups (the chirp).
+      const trill = ctx!.createGain();
+      trill.gain.value = 0.5;
+      sway(b, trill.gain, rate, 0.5);
+      const chirp = ctx!.createGain();
+      chirp.gain.value = 0.5;
+      sway(b, chirp.gain, gate, 0.5);
+      chirp.connect(place(pan, mix));
+      drone(b, "sine", f, 1, trill);
+      trill.connect(chirp);
+    }
+    every(b, 50, 100, (t) => {
+      const pan = Math.random() < 0.5 ? -0.7 : 0.7;
+      const lp = ctx!.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 1500;
+      const g = ctx!.createGain();
+      const o = ctx!.createOscillator();
+      o.type = "triangle";
+      for (let i = 0; i < 3; i++) {
+        o.frequency.linearRampToValueAtTime(i % 2 ? 640 : 880, t + i * 1.8 + 1.8);
+      }
+      o.frequency.setValueAtTime(640, t);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.05, t + 1.5);
+      g.gain.setValueAtTime(0.05, t + 4);
+      g.gain.linearRampToValueAtTime(0, t + 6);
+      o.connect(lp).connect(g).connect(place(pan, b.gain));
+      o.start(t);
+      o.stop(t + 6.2);
+    });
+  },
+  // Wind through the wheat: slow swells of hush.
+  field(b) {
+    const a = hiss(b, "bandpass", 2400, 0.9, 0.9);
+    sway(b, a.g.gain, 0.11, 0.6);
+    sway(b, a.f.frequency, 0.07, 500);
+    const c = hiss(b, "bandpass", 5500, 0.8, 0.7);
+    sway(b, c.g.gain, 0.17, 0.4);
+    const low = hiss(b, "lowpass", 220, 0.5, 0.25);
+    sway(b, low.g.gain, 0.05, 0.15);
+  },
+};
+
+// Squeaks go through a narrow band so they sound like a chair, not a siren.
+function squeakFilter(): BiquadFilterNode {
+  const f = ctx!.createBiquadFilter();
+  f.type = "bandpass";
+  f.frequency.value = 1500;
+  f.Q.value = 1.5;
+  f.connect(bed?.gain ?? bedBus!);
+  return f;
+}
+
+// --- Infection pulse -----------------------------------------------------
+// A slow heartbeat under everything. The rate and the level follow the value.
+
+let pulseValue = 0;
+let pulseNext = 0;
+
+/** 0..1: how far the infection has got. Under about 0.03 there is no pulse. */
+export function setInfectionPulse(v: number): void {
+  pulseValue = clamp(v, 0, 1);
+}
+
+function tickPulse(): void {
+  if (!ctx || !pulseBus) return;
+  const v = pulseValue;
+  if (muted || document.hidden || v < 0.03) {
+    pulseNext = Math.max(pulseNext, ctx.currentTime + 0.1);
+    return;
+  }
+  const period = 60 / (52 + v * 68); // 52 bpm rising to 120
+  while (pulseNext < ctx.currentTime + 0.5) {
+    beat(Math.max(pulseNext, ctx.currentTime + 0.02), v);
+    pulseNext += period;
+  }
+}
+
+function beat(t: number, v: number): void {
+  const level = (0.03 + 0.12 * v) * (calm ? 0.5 : 1);
+  const thud = (at: number, f0: number, f1: number, amp: number, dur: number) => {
+    for (const [mul, a] of [[1, amp], [2.1, amp * 0.3]] as const) {
+      const o = ctx!.createOscillator();
+      o.frequency.setValueAtTime(f0 * mul, at);
+      o.frequency.exponentialRampToValueAtTime(f1 * mul, at + dur);
+      const g = ctx!.createGain();
+      g.gain.setValueAtTime(0, at);
+      g.gain.linearRampToValueAtTime(a, at + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+      o.connect(g).connect(pulseBus!);
+      o.start(at);
+      o.stop(at + dur + 0.02);
+    }
+  };
+  thud(t, 62, 42, level, 0.22);
+  thud(t + 0.19 - v * 0.04, 54, 38, level * 0.7, 0.2);
 }
