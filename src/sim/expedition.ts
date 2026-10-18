@@ -1,4 +1,5 @@
 import { noteGoal } from "./goals";
+import { twistIs } from "./twists";
 import { CALL_GAP, CALL_OUTCOMES, CALL_TICKS, CALL_TIMEOUT, CALLS, MAX_CALLS, THREAT_LINES, THREAT_OUTCOMES, THREAT_TICKS, VENDING_PRICE, type CallDef } from "../data/calls";
 import { entityDef } from "../data/entities";
 import { ECHO_LINES, INFECTED_RADIO } from "../data/infection";
@@ -18,6 +19,8 @@ import { deathHeat, deathInfection } from "./projects";
 import { broughtHome, checkSurvey, isMastered, isUnlocked, learn, stageOf } from "./research";
 import { Dice } from "./rng";
 import { addMemo, fill, type GameState } from "./state";
+import { FINAL_ARRIVE } from "../data/story";
+import { actRadio } from "./story";
 
 // One crew walking one level. Everything here is plain data so a run can be
 // saved mid-way and stepped by tests without a browser.
@@ -54,6 +57,8 @@ export interface Expedition {
   mod?: number; // how much a choice made just now scales the danger of the next encounter
   boss?: string; // the player's name, for radio lines that use it
   recent?: string[]; // radio lines already heard, so the crew does not repeat itself
+  final?: boolean; // the last descent to the farmhouse, see sim/story.ts
+  reached?: boolean; // the final descent got as far as the farmhouse
   result?: { survivors: number; dead: string[]; loot: string[]; notes: string[] };
 }
 
@@ -187,7 +192,7 @@ export function startExpedition(
 
 function reveal(state: GameState, lv: Level, levelId: string, p: Pt, radius?: number): void {
   const fog = state.fog[levelId];
-  const lit = levelDef(levelId).vision ?? (state.outageDay === state.day ? 2 : VISION); // power cut or tall wheat: less seen
+  const lit = levelDef(levelId).vision ?? (state.outageDay === state.day || twistIs(state, "fog") ? 2 : VISION); // power cut, fog or tall wheat: less seen
   const r = radius ?? (lv.cells[idx(lv, p)] === DARK ? 1 : lit);
   for (let y = p.y - r; y <= p.y + r; y++)
     for (let x = p.x - r; x <= p.x + r; x++)
@@ -220,6 +225,7 @@ const bestItem = (exp: Expedition) => [...exp.carried].sort((a, b) => ITEMS[b].v
 // running jokes that grow with the days, and the mood of the run so far.
 function ambientPool(state: GameState, exp: Expedition, crew: Worker[]): string[] {
   const pool = [...RADIO.AMBIENT, ...MORE.AMBIENT_EXTRA, ...(MORE.LEVEL_AMBIENT[exp.levelId] ?? []), ...(MORE.LEVEL_AMBIENT[exp.levelId] ?? [])];
+  pool.push(...actRadio(state, exp));
   const jokes = MORE.RUNNING_JOKES.filter((j) => j.fromDay <= state.day).slice(-2);
   for (const j of jokes) pool.push(...j.lines);
   if (exp.encounters > 0 || exp.log.some((l) => /checked in|fell behind|lost /.test(l))) pool.push(...MORE.TENSE, ...MORE.TENSE);
@@ -320,7 +326,13 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
     } else if (exp.phase === "in" && (exp.pins ?? [exp.waypoint]).some((p) => p.x === exp.pos.x && p.y === exp.pos.y)) {
       say(exp, dice, crew, [...RADIO.ARRIVE, ...MORE.ARRIVE_MORE]);
     }
-    if (exp.phase === "in" && !exp.targets.length) turnBack(lv, exp);
+    if (exp.phase === "in" && !exp.targets.length) {
+      if (exp.final) {
+        exp.reached = true;
+        say(exp, dice, crew, FINAL_ARRIVE);
+      }
+      turnBack(lv, exp);
+    }
   }
   if (exp.phase === "return" && exp.pos.x === lv.entrance.x && exp.pos.y === lv.entrance.y) {
     say(exp, dice, crew, homePool(state, exp));

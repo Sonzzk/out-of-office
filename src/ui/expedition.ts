@@ -66,6 +66,7 @@ export function renderExpedition(body: HTMLElement): void {
       taken: st.takenToday[exp.levelId] ?? [],
       levelName: levelDef(exp.levelId).name,
       depth: levelDef(exp.levelId).depth,
+      mates: exp.crewIds.filter((id) => id !== lead?.id).map((id) => st.crew.find((w) => w.id === id)).filter((w) => w?.status === "out").map((w) => w!.portrait),
     };
   }
 

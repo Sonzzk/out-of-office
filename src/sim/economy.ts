@@ -7,12 +7,15 @@ import { rollEvent, resolvePending } from "./events";
 import { upkeep } from "./facilities";
 import { nightInfection } from "./infection";
 import { nightShift } from "./office";
+import { storyNight } from "./story";
 import { saleMultiplier } from "./projects";
+import { rollContracts } from "./contracts";
+import { BUYER_BONUS, rollTwist, twistIs } from "./twists";
 import { finishResearch } from "./research";
 import { addMemo, fill, type GameState } from "./state";
 
 export function sellPrice(itemId: string, state?: GameState): number {
-  return Math.round(ITEMS[itemId].value * (state ? saleMultiplier(state) : 1));
+  return Math.round(ITEMS[itemId].value * (state ? saleMultiplier(state) * (twistIs(state, "buyer") ? BUYER_BONUS : 1) : 1));
 }
 
 export const FIRST_SALE_BONUS = 100;
@@ -52,6 +55,7 @@ export function canEndDay(state: GameState): boolean {
 export function endDay(state: GameState): boolean {
   if (!canEndDay(state)) return false;
   resolvePending(state);
+  const memosBefore = state.memos.length;
   setGoal(state, state.day + 1); // lands under tonight's other memos
   // Whoever survived the most runs gets a plaque, if anyone went out today.
   const wentOut = state.expeditions.length > 0;
@@ -66,12 +70,15 @@ export function endDay(state: GameState): boolean {
   nightInfection(state);
   payroll(state);
   state.day++;
+  rollTwist(state); // before the pool, which reads it
   checkTarget(state);
+  storyNight(state, memosBefore);
   state.takenToday = {};
   delete state.fog["level-5"]; // the hotel rearranges itself overnight
   state.expeditions = [];
   state.pool = generatePool(state);
   rollEvent(state);
+  rollContracts(state);
   return true;
 }
 

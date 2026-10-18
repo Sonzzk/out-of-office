@@ -7,8 +7,10 @@ import { refreshCalm } from "./uncanny";
 import { has } from "../sim/projects";
 import { benches, tier } from "../sim/facilities";
 import { daySummary } from "../sim/summary";
+import { twistToday } from "../sim/twists";
 import { esc } from "./dom";
 import { shownName } from "../privacy";
+import { clockOut, startStory } from "./ending";
 import { startFourthWall } from "./fourthwall";
 import { startGlitch } from "./glitch";
 import { startInfestation } from "./infestation";
@@ -28,6 +30,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
         <span class="hide-sm"><img src="./art/icons/U-cash.png" alt=""><b data-cash></b></span>
         <span class="hide-sm"><img src="./art/icons/U-heat.png" alt="">Heat <b data-heat></b></span>
         <span class="hide-sm fac" data-fac hidden></span>
+        <span class="hide-sm twist-tag" data-twist hidden></span>
         <span class="hide-sm" data-floor hidden><b>FL 2</b></span>
         <span class="hide-sm" data-air hidden><img src="./art/icons/U-infection.png" alt="">Air <b></b></span>
         <button class="hum" data-calm></button>
@@ -82,6 +85,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
     dialog("Help", "Help is not available on this workstation. Have you tried working harder?", ["OK"]),
   );
   item("./art/icons/U-padlock.png", "Clock Out...", async () => {
+    if (await clockOut()) return;
     const a = await dialog("Clock Out", "You cannot clock out during a shift. Your shift ends when the work is done.", ["OK", "Cancel"]);
     if (a === "OK") dialog("Clock Out", "The work is not done.", ["OK"], "./art/icons/U-clock.png");
   });
@@ -156,6 +160,13 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
     const air = desk.querySelector<HTMLElement>("[data-air]")!;
     air.hidden = state.infection < 20;
     air.querySelector("b")!.textContent = state.infection >= 60 ? "BAD" : `${100 - state.infection}%`;
+    const tw = desk.querySelector<HTMLElement>("[data-twist]")!;
+    const today = twistToday(state);
+    tw.hidden = !today;
+    if (today) {
+      tw.textContent = today.name;
+      tw.title = today.text;
+    }
     projects(desk, state);
     facilities(desk, state);
     // Once in a long while the clock says 11:47 PM for a few seconds. It always does.
@@ -174,6 +185,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   startGlitch(desk, () => shownName(game().bossName));
   startFourthWall(desk, game);
   startTutorial(desk);
+  startStory(desk);
 
   // An event memo that needs an answer pops up once, wherever you are.
   const announced = new Set(state.memos.map((m) => m.id));

@@ -1,6 +1,7 @@
 import { CLONE_PORTRAITS, LEVEL_XP, PEOPLE, QUIRKS, SKILLS, type Skill, type Source } from "../data/crew";
 import { Dice } from "./rng";
 import type { GameState } from "./state";
+import { BARGAIN, twistIs } from "./twists";
 
 export interface Worker {
   id: number;
@@ -72,7 +73,7 @@ export function generatePool(state: GameState): Worker[] {
       name,
       portrait,
       source,
-      cost: Math.round(dice.range(...stats.cost) / 10) * 10,
+      cost: Math.round((dice.range(...stats.cost) * (twistIs(state, "bargain") ? BARGAIN : 1)) / 10) * 10,
       skills,
       quirks: [visible, hidden],
       revealed: [visible],
