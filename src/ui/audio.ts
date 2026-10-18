@@ -3,6 +3,8 @@
 // noise. Browsers only allow sound after a click, so startAudio() is called
 // from the boot screen's button.
 
+import { isStreamer } from "../privacy";
+
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let hum: GainNode | null = null;
@@ -38,7 +40,7 @@ export function setCalm(on: boolean): void {
 }
 
 /** How wrong the muzak is allowed to sound, 0..1. Calm mode caps it low. */
-const effectiveUnease = () => (calm ? Math.min(audioUnease, 0.1) : audioUnease);
+const effectiveUnease = () => (calm ? Math.min(audioUnease, 0.1) : isStreamer() ? Math.min(audioUnease, 0.5) : audioUnease);
 
 export function setAudioUnease(v: number): void {
   audioUnease = Math.max(0, Math.min(1, v));

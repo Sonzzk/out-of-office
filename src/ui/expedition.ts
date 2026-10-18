@@ -1,6 +1,7 @@
 import { ITEMS } from "../data/items";
 import { isVeteran } from "../sim/crew";
 import { CALLS } from "../data/calls";
+import { scrub } from "../privacy";
 import { radioStatic, sfx } from "./audio";
 import { entityDef } from "../data/entities";
 import { GEAR, gearDef } from "../data/gear";
@@ -252,7 +253,7 @@ export function renderExpedition(body: HTMLElement): void {
     if (logCount < exp.log.length && logCount > 0) sfx("squelch");
     for (; logCount < exp.log.length; logCount++) {
       const p = document.createElement("p");
-      p.textContent = exp.log[logCount];
+      p.textContent = scrub(exp.log[logCount], game().bossName);
       box.appendChild(p);
     }
     box.scrollTop = box.scrollHeight;
