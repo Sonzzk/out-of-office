@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "shot": "node scripts/shot.mjs",
-    "playtest": "node scripts/playtest-loop.mjs && node scripts/playtest-two.mjs && node scripts/playtest-infection.mjs && node scripts/playtest-levels.mjs && node scripts/playtest-roster.mjs && node scripts/playtest-facilities.mjs",
+    "playtest": "node scripts/playtest-loop.mjs && node scripts/playtest-two.mjs && node scripts/playtest-infection.mjs && node scripts/playtest-levels.mjs && node scripts/playtest-roster.mjs && node scripts/playtest-facilities.mjs && node scripts/playtest-events.mjs",
     "artifact": "node scripts/artifact.mjs"
   },
   "devDependencies": {

@@ -104,7 +104,7 @@ describe("Index and economy", () => {
     let due = s.target.deadline;
     while (s.day < due) endDay(s);
     expect(s.target.year).toBe(1);
-    expect(s.memos[0].subject).toContain("concerns");
+    expect(s.memos.some((m) => m.day === s.day && m.subject.includes("concerns"))).toBe(true);
     expect(s.target.deadline).toBe(due + 3);
     s.cash = 10_000;
     due = s.target.deadline;

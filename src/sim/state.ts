@@ -25,6 +25,7 @@ export interface Memo {
   body: string;
   day: number;
   read: boolean;
+  event?: { id: string; vars: Record<string, string | number>; choice?: number; result?: string }; // a memo that asks for a decision
 }
 
 // The whole save game. Pure data: no DOM, no classes, so it serializes as-is.
@@ -52,12 +53,14 @@ export interface GameState {
   index: Record<string, IndexState>;
   research: { itemId: string; startedDay: number }[]; // one sample per lab bench
   upgrades: Record<string, number>; // facility upgrade id -> tiers bought
+  events: { last: Record<string, number>; count: Record<string, number> }; // overnight events: day last seen, times seen
+  outageDay?: number; // the day the power is out
   target: { year: number; amount: number; deadline: number }; // the board's money target
   heatWarned: boolean; // Legal has already sent the warning memo
   infectionSeen: number; // highest infection stage that has had its memo
 }
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 export const FIRST_TARGET = { year: 1, amount: 2500, deadline: 5 };
 
 // Bring older saves up to date instead of throwing them away.
@@ -107,6 +110,10 @@ export function migrate(save: any): GameState | null {
       e.used ??= [];
     }
     save.version = 8;
+  }
+  if (save?.version === 8) {
+    save.events = { last: {}, count: {} };
+    save.version = 9;
   }
   return save?.version === SAVE_VERSION ? (save as GameState) : null;
 }
@@ -162,6 +169,7 @@ export function newGame(seed: number, bossName = "Boss"): GameState {
     infectionSeen: 0,
     research: [],
     upgrades: {},
+    events: { last: {}, count: {} },
   };
   state.pool = generatePool(state);
   addMemo(state, WELCOME);

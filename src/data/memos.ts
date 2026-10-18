@@ -89,8 +89,8 @@ export const INSPECTION = {
   from: "Legal",
   subject: "Inspection: fined {fine}",
   body:
-    "The inspector came. The inspector saw the door at the end of the hall. The inspector asked about the people who went through it.\n\n" +
-    "{company} has been fined {fine}. The inspector will be back if this happens again.\n\n- Legal",
+    "Inspector Hollis came. He saw the door at the end of the hall. He asked about the people who went through it.\n\n" +
+    "{company} has been fined {fine}. He will be back if this happens again.\n\n- Legal",
 };
 
 export const CONTRACT_DONE = {

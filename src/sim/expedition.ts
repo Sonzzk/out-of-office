@@ -157,7 +157,8 @@ export function startExpedition(
 
 function reveal(state: GameState, lv: Level, levelId: string, p: Pt, radius?: number): void {
   const fog = state.fog[levelId];
-  const r = radius ?? (lv.cells[idx(lv, p)] === DARK ? 1 : VISION);
+  const lit = state.outageDay === state.day ? 2 : VISION; // power cut: less light everywhere
+  const r = radius ?? (lv.cells[idx(lv, p)] === DARK ? 1 : lit);
   for (let y = p.y - r; y <= p.y + r; y++)
     for (let x = p.x - r; x <= p.x + r; x++)
       if (x >= 0 && y >= 0 && x < lv.w && y < lv.h && dist(p, { x, y }) <= r) fog[y * lv.w + x] = 1;
