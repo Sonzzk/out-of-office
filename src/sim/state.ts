@@ -33,6 +33,8 @@ export interface GameState {
   seed: number;
   company: string;
   bossName: string;
+  /** Set during onboarding; a save without one hasn't signed the paperwork yet. */
+  catchphrase?: string;
   day: number;
   cash: number;
   heat: number; // 0..100, see concept.md "Heat meter"
