@@ -11,6 +11,8 @@ import { twistToday } from "../sim/twists";
 import { esc } from "./dom";
 import { shownName } from "../privacy";
 import { clockOut, startStory } from "./ending";
+import { startDayCard } from "./daycard";
+import { openGuideTab } from "./handbook";
 import { startFourthWall } from "./fourthwall";
 import { startGlitch } from "./glitch";
 import { startInfestation } from "./infestation";
@@ -51,6 +53,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
     btn.innerHTML = `<img alt=""><span></span>`;
     btn.querySelector("img")!.src = app.icon;
     btn.querySelector("span")!.textContent = app.title;
+    btn.title = app.hint;
     btn.addEventListener("click", () => openApp(app));
     icons.appendChild(btn);
   }
@@ -81,9 +84,10 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
       dialog("Day summary", text, ["OK"]); // no clipboard here: show it instead
     }
   });
-  item("./art/icons/U-document.png", "Help", () =>
-    dialog("Help", "Help is not available on this workstation. Have you tried working harder?", ["OK"]),
-  );
+  item("./art/icons/U-document.png", "Help", () => {
+    openGuideTab();
+    openApp(list.find((a) => a.id === "handbook")!);
+  });
   item("./art/icons/U-padlock.png", "Clock Out...", async () => {
     if (await clockOut()) return;
     const a = await dialog("Clock Out", "You cannot clock out during a shift. Your shift ends when the work is done.", ["OK", "Cancel"]);
@@ -186,6 +190,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   startFourthWall(desk, game);
   startTutorial(desk);
   startStory(desk);
+  startDayCard(desk);
 
   // An event memo that needs an answer pops up once, wherever you are.
   const announced = new Set(state.memos.map((m) => m.id));

@@ -1,0 +1,15 @@
+/* Guide tab of the Employee Handbook (guide.ts). */
+.hb-tabs { display: flex; gap: 2px; }
+.hb-tabs .tab { font: inherit; padding: 3px 12px; background: var(--face, #c0c0c0); border: 2px outset #fff; cursor: pointer; }
+.hb-tabs .tab.on { border-style: inset; font-weight: bold; }
+.hb-pane { display: flex; flex-direction: column; gap: 8px; }
+.hb-pane[hidden] { display: none; }
+.loop-strip { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; align-items: stretch; }
+.loop-strip li { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; text-align: center; font-size: 11px; position: relative; background: #efe9b4; border: 2px solid var(--sh, #888); }
+.loop-strip li + li::before { content: ">"; position: absolute; left: -9px; top: 40%; font-weight: bold; }
+.loop-strip img { width: 28px; height: 28px; image-rendering: pixelated; }
+.guide-sec { padding: 6px 10px; }
+.guide-sec h4 { display: flex; gap: 6px; align-items: center; margin: 0 0 4px; }
+.guide-sec h4 img { width: 20px; height: 20px; image-rendering: pixelated; }
+.guide-sec p { margin: 4px 0; line-height: 1.35; font-size: 12px; }
+.privacy-note { margin: 2px 0 0; }

@@ -1,0 +1,16 @@
+/* Memo Inbox: filters, pins and decision tags (inbox.ts). */
+.inbox .lcol { display: flex; flex-direction: column; gap: 4px; min-height: 0; min-width: 0; }
+.inbox .lcol .list { flex: 1; min-height: 0; }
+.inbox .filters { display: flex; flex-wrap: wrap; gap: 2px; }
+.inbox .filters .tab { font: inherit; font-size: 11px; padding: 1px 6px; background: var(--face, #c0c0c0); border: 2px outset #fff; cursor: pointer; }
+.inbox .filters .tab.on { border-style: inset; font-weight: bold; }
+.inbox .filters .tab:disabled { color: #777; cursor: default; }
+.inbox .msg.decision { border-left: 3px solid var(--red); }
+.inbox .ask { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; text-transform: uppercase; padding: 0 3px; background: var(--red); color: #fff; }
+.inbox .ask img { width: 11px; height: 11px; image-rendering: pixelated; }
+.inbox .msg.on .ask { background: #efe9b4; color: var(--red); }
+.inbox .pin { font-size: 10px; text-transform: uppercase; color: var(--red); }
+.inbox .msg.on .pin { color: #efe9b4; }
+.inbox .sep { padding: 2px 6px; font-size: 10px; text-transform: uppercase; border-bottom: 1px dotted var(--beige); }
+.inbox .empty { padding: 6px; margin: 0; }
+@media (max-width: 640px) { .inbox .list { max-height: none; } .inbox { grid-template-rows: minmax(0, 45%) 1fr; } .inbox .filters .tab { padding: 4px 8px; } }

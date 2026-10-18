@@ -95,7 +95,7 @@ describe("story acts", () => {
     endDay(s);
     const subjects = s.memos.map((m) => m.subject);
     expect(subjects.indexOf("A note on who we are")).toBeGreaterThan(subjects.findIndex((x) => x.startsWith("Today's goal")));
-    expect(s.memos[0].subject).toMatch(/Today's goal|Payroll|Employee/);
+    expect(s.memos[0].subject).toMatch(/Today's goal|Daily digest/);
   });
 
   it("is deterministic for a seed", () => {

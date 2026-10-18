@@ -76,7 +76,7 @@ describe("crew", () => {
     crew.forEach((w) => (w.skills.stealth = 6));
     run(s, crew.map((w) => w.id));
     endDay(s);
-    expect(s.memos.some((m) => m.subject.startsWith("Employee of the Month"))).toBe(true);
+    expect(s.memos.some((m) => m.subject.startsWith("Daily digest") && m.body.includes("EMPLOYEE OF THE MONTH"))).toBe(true);
   });
 
   it("migrates a version 2 save", () => {
