@@ -44,11 +44,19 @@ img { image-rendering: pixelated; }
 .body { padding: 8px; overflow: auto; flex: 1; }
 .win[hidden] { display: none; }
 .win.max { box-shadow: none; max-width: none; }
-.win.max .grip { display: none; }
+.win.max .grip, .win.max .rz { display: none; }
+.rz { position: absolute; touch-action: none; z-index: 2; }
+.rz-n, .rz-s { left: 10px; right: 10px; height: 6px; cursor: ns-resize; }
+.rz-e, .rz-w { top: 10px; bottom: 10px; width: 6px; cursor: ew-resize; }
+.rz-n { top: -3px; } .rz-s { bottom: -3px; } .rz-e { right: -3px; } .rz-w { left: -3px; }
+.rz-ne, .rz-nw, .rz-sw { width: 12px; height: 12px; }
+.rz-ne { top: -3px; right: -3px; cursor: nesw-resize; }
+.rz-nw { top: -3px; left: -3px; cursor: nwse-resize; }
+.rz-sw { bottom: -3px; left: -3px; cursor: nesw-resize; }
 .grip { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; touch-action: none;
   background: linear-gradient(135deg, transparent 0 45%, var(--sh) 45% 52%, transparent 52% 64%, var(--sh) 64% 71%, transparent 71% 83%, var(--sh) 83% 90%, transparent 90%); }
 .win.dialog { box-shadow: 4px 4px 0 rgba(0,0,0,.55), 0 0 0 100vmax rgba(10,9,3,.25); }
-.win.dialog .tb button:not([data-act="close"]), .win.dialog .grip { display: none; }
+.win.dialog .tb button:not([data-act="close"]), .win.dialog .grip, .win.dialog .rz { display: none; }
 .dlg { display: flex; gap: 14px; align-items: flex-start; padding: 6px 4px 10px; line-height: 1.5; }
 .dlg img { width: 36px; height: 36px; flex: none; }
 .dlg-btns { display: flex; justify-content: center; gap: 8px; }
@@ -165,6 +173,7 @@ button:focus-visible, .btn:focus-visible, .tb button:focus-visible, .taskbar but
   .tb { height: 32px; }
   .tb button { width: 32px; height: 26px; }
   .grip { width: 28px; height: 28px; }
+  .rz-n, .rz-s { height: 14px; } .rz-e, .rz-w { width: 14px; }
   .btn { min-height: 34px; }
   .taskbar button { min-height: 32px; }
   .ic { min-height: 64px; }
