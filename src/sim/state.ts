@@ -58,9 +58,11 @@ export interface GameState {
   target: { year: number; amount: number; deadline: number }; // the board's money target
   heatWarned: boolean; // Legal has already sent the warning memo
   infectionSeen: number; // highest infection stage that has had its memo
+  tutorial: number; // orientation step (see sim/tutorial.ts); TUTORIAL_DONE when finished
 }
 
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
+export const TUTORIAL_DONE = 4;
 export const FIRST_TARGET = { year: 1, amount: 2000, deadline: 6 };
 
 // Bring older saves up to date instead of throwing them away.
@@ -114,6 +116,11 @@ export function migrate(save: any): GameState | null {
   if (save?.version === 8) {
     save.events = { last: {}, count: {} };
     save.version = 9;
+  }
+  if (save?.version === 9) {
+    // Anyone who already has a crew or has seen a second day has found their feet.
+    save.tutorial = save.crew.length > 0 || save.day > 1 ? TUTORIAL_DONE : 0;
+    save.version = 10;
   }
   return save?.version === SAVE_VERSION ? (save as GameState) : null;
 }
@@ -170,6 +177,7 @@ export function newGame(seed: number, bossName = "Boss"): GameState {
     research: [],
     upgrades: {},
     events: { last: {}, count: {} },
+    tutorial: 0,
   };
   state.pool = generatePool(state);
   addMemo(state, WELCOME);

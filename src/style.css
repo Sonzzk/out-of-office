@@ -140,3 +140,12 @@ canvas.map { display: block; width: 100%; height: 100%; background: #0e1208; }
 /* Employee Handbook. */
 .handbook { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
 .handbook .opt { display: flex; gap: 8px; align-items: flex-start; padding: 6px 8px; cursor: pointer; }
+
+/* Employee Orientation (tutorial.ts). */
+.tutorial { position: absolute; right: 12px; top: 12px; width: 250px; z-index: 8000; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; background: #e9e2b0; }
+.tutorial[hidden] { display: none; }
+.tutorial .ttl { font-weight: bold; }
+.tutorial .btn { align-self: flex-end; margin-top: 2px; }
+.ic.tut-hint { animation: tut-pulse 1.4s ease-in-out infinite; border-color: #f3ecc0; }
+@keyframes tut-pulse { 50% { box-shadow: 0 0 0 4px rgba(243, 236, 192, 0.55); } }
+@media (prefers-reduced-motion: reduce) { .ic.tut-hint { animation: none; box-shadow: 0 0 0 3px rgba(243, 236, 192, 0.7); } }
