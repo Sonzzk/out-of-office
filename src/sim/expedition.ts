@@ -2,7 +2,8 @@ import { ITEMS } from "../data/items";
 import { PLAQUES, WIPE_MEMO } from "../data/memos";
 import * as RADIO from "../data/radio";
 import { gainXp, hasQuirk, quirkDef, revealQuirk, skill, type Worker } from "./crew";
-import { DARK, dist, findPath, generateLevel, idx, nearestOpen, neighbors, type Level, type Pt } from "./level";
+import { DARK, dist, findPath, generateLevel, idx, nearestOpen, neighbors, WALL, type Level, type Pt } from "./level";
+import { broughtHome, checkSurvey, isMastered, learn, stageOf } from "./research";
 import { Dice } from "./rng";
 import { addMemo, fill, type GameState } from "./state";
 
@@ -16,9 +17,7 @@ export interface Expedition {
   pos: Pt;
   phase: "in" | "return" | "done";
   targets: Pt[];
-  entity: Pt;
-  entityCooldown: number;
-  entitySeen: boolean;
+  entities: Roamer[];
   tick: number;
   nextChatter: number;
   dice: number;
@@ -26,6 +25,14 @@ export interface Expedition {
   log: string[];
   encounters: number;
   result?: { survivors: number; dead: string[]; loot: string[]; notes: string[] };
+}
+
+// One entity walking the same level as the crew.
+export interface Roamer {
+  id: string; // Index id: smiler, hound, faceling
+  pos: Pt;
+  cooldown: number; // ticks spent away after an encounter
+  seen: boolean;
 }
 
 const VISION = 3;
@@ -82,9 +89,7 @@ export function startExpedition(state: GameState, crewIds: number[], marker: Pt,
     pos: { ...lv.entrance },
     phase: "in",
     targets: [waypoint],
-    entity: { ...lv.entity },
-    entityCooldown: 0,
-    entitySeen: false,
+    entities: lv.spawns.map((s) => ({ id: s.id, pos: { ...s.at }, cooldown: 0, seen: false })),
     tick: 0,
     nextChatter: 6,
     dice: (state.seed ^ Math.imul(state.nextId * 97 + state.day, 2654435761)) >>> 0,
@@ -127,7 +132,9 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
   const lead = crew.find((w) => w.id === exp.leadId);
   const navSum = crew.reduce((s, w) => s + skill(w, "nav"), 0) + (lead ? skill(lead, "nav") : 0);
   const avgNav = navSum / Math.max(1, crew.length + (lead ? 1 : 0));
-  const stalled = dice.chance(Math.max(0, 0.16 - avgNav * 0.03));
+  // Once Level 0 is mastered, everyone knows the way.
+  const mapBonus = isMastered(state, "level-0") ? 1 : 0;
+  const stalled = dice.chance(Math.max(0, 0.16 - (avgNav + mapBonus) * 0.03));
 
   // Spot loot nearby on the way in and detour for it.
   if (exp.phase === "in") {
@@ -167,7 +174,10 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
     return finish(state, exp);
   }
 
-  moveEntity(state, lv, exp, dice, crew);
+  for (const r of exp.entities) {
+    if ((exp.phase as Expedition["phase"]) === "done") break;
+    moveEntity(state, lv, exp, r, dice, members(state, exp));
+  }
 
   // An encounter above can end the run.
   if (exp.tick >= exp.nextChatter && (exp.phase as Expedition["phase"]) !== "done") {
@@ -184,41 +194,81 @@ function turnBack(lv: Level, exp: Expedition): void {
   exp.targets = [{ ...lv.entrance }];
 }
 
-function moveEntity(state: GameState, lv: Level, exp: Expedition, dice: Dice, crew: Worker[]): void {
-  if (exp.entityCooldown > 0) {
-    exp.entityCooldown--;
-    exp.entitySeen = false;
+function moveEntity(state: GameState, lv: Level, exp: Expedition, r: Roamer, dice: Dice, crew: Worker[]): void {
+  if (r.cooldown > 0) {
+    r.cooldown--;
+    r.seen = false;
     return;
   }
   const whistler = crew.find((w) => hasQuirk(w, "whistler"));
-  const near = dist(exp.entity, exp.pos) <= (whistler ? 7 : 5);
-  const inDark = lv.cells[idx(lv, exp.pos)] === DARK || lv.cells[idx(lv, exp.entity)] === DARK;
-  if (near && inDark) {
-    const step = findPath(lv, exp.entity, exp.pos)[0];
-    if (step && dice.chance(0.7)) exp.entity = step;
-  } else if (dice.chance(0.5)) {
-    // Wander, preferring dark cells.
-    const options = neighbors(lv, exp.entity);
-    const dark = options.filter((p) => lv.cells[idx(lv, p)] === DARK);
-    exp.entity = dice.pick(dark.length && dice.chance(0.8) ? dark : options);
+  const d = dist(r.pos, exp.pos);
+  const options = neighbors(lv, r.pos);
+  const dark = (p: Pt) => lv.cells[idx(lv, p)] === DARK;
+  const chase = () => {
+    const step = findPath(lv, r.pos, exp.pos)[0];
+    if (step) r.pos = step;
+  };
+  if (r.id === "smiler") {
+    // Only hunts when someone is in the dark. Lit halls are safe from it.
+    if (d <= (whistler ? 7 : 5) && (dark(exp.pos) || dark(r.pos))) dice.chance(0.7) && chase();
+    else if (dice.chance(0.5)) {
+      const unlit = options.filter(dark);
+      r.pos = dice.pick(unlit.length && dice.chance(0.8) ? unlit : options);
+    }
+  } else if (r.id === "hound") {
+    // Hunts by sound anywhere, keeps to the lit halls when wandering.
+    if (d <= (whistler ? 6 : 4)) dice.chance(0.6) && chase();
+    else if (dice.chance(0.6)) {
+      const lit = options.filter((p) => !dark(p));
+      r.pos = dice.pick(lit.length ? lit : options);
+    }
+  } else if (dice.chance(0.35)) {
+    // Facelings just wander, late for a meeting.
+    r.pos = dice.pick(options);
   }
-  const wasSeen = exp.entitySeen;
-  exp.entitySeen = dist(exp.entity, exp.pos) <= VISION;
-  if (exp.entitySeen && !wasSeen) {
-    say(exp, dice, crew, RADIO.SPOTTED);
-    if (whistler) revealLine(exp, whistler, "whistler");
+
+  const wasSeen = r.seen;
+  r.seen = dist(r.pos, exp.pos) <= VISION;
+  if (r.seen && !wasSeen) {
+    say(exp, dice, crew, r.id === "hound" ? RADIO.SPOTTED_HOUND : r.id === "faceling" ? RADIO.SPOTTED_FACELING : RADIO.SPOTTED);
+    const note = crew.length ? learn(state, r.id, 1, crew[0].name) : null;
+    if (note) exp.log.push(note);
+    if (whistler && r.id !== "faceling") revealLine(exp, whistler, "whistler");
   }
-  if (dist(exp.entity, exp.pos) <= 1) encounter(state, lv, exp, dice, crew);
+  if (dist(r.pos, exp.pos) <= 1) encounter(state, lv, exp, r, dice, crew);
 }
 
-function encounter(state: GameState, lv: Level, exp: Expedition, dice: Dice, crew: Worker[]): void {
-  // Each crew member tries to slip away; the Smiler takes at most one.
+// Send an entity away after an encounter so it doesn't hit twice in a row.
+function sendAway(lv: Level, exp: Expedition, r: Roamer, dice: Dice): void {
+  r.cooldown = 14;
+  r.seen = false;
+  const spawn = lv.spawns.find((s) => s.id === r.id)!.at;
+  const open: Pt[] = [];
+  lv.cells.forEach((c, i) => {
+    if (c !== WALL && (r.id !== "smiler" || c === DARK)) open.push({ x: i % lv.w, y: Math.floor(i / lv.w) });
+  });
+  const far = open.filter((p) => dist(p, exp.pos) > 8);
+  r.pos = far.length ? dice.pick(far) : { ...spawn };
+}
+
+function encounter(state: GameState, lv: Level, exp: Expedition, r: Roamer, dice: Dice, crew: Worker[]): void {
   exp.encounters++;
+  sendAway(lv, exp, r, dice);
+  if (r.id === "faceling") return facelingEncounter(state, lv, exp, dice, crew);
+
+  // The Hound won't take on a group.
+  if (r.id === "hound" && crew.length >= (isMastered(state, "hound") ? 2 : 3)) {
+    say(exp, dice, crew, RADIO.HOUND_BACKS_OFF);
+    return survived(state, exp, r, dice, crew);
+  }
+
+  // Each crew member tries to slip away; the entity takes at most one.
   const order = [...crew].sort(() => dice.next() - 0.5);
   for (const w of crew) if (hasQuirk(w, "coward") && crew.length > 1) revealLine(exp, w, "coward");
   const victim = order.find((w) => {
     if (hasQuirk(w, "coward") && crew.length > 1) return false;
-    const p = 0.5 - skill(w, "stealth") * 0.075;
+    let p = r.id === "hound" ? 0.55 - skill(w, "stealth") * 0.06 : 0.5 - skill(w, "stealth") * 0.075;
+    if (r.id === "smiler" && isMastered(state, "smiler")) p /= 2;
     const roll = dice.next();
     if (hasQuirk(w, "lucky") && roll < p && roll >= p / 2) {
       revealLine(exp, w, "lucky");
@@ -226,20 +276,15 @@ function encounter(state: GameState, lv: Level, exp: Expedition, dice: Dice, cre
     }
     return roll < p;
   });
-  exp.entityCooldown = 14;
-  const darkCells: Pt[] = [];
-  lv.cells.forEach((c, i) => c === DARK && darkCells.push({ x: i % lv.w, y: Math.floor(i / lv.w) }));
-  const far = darkCells.filter((p) => dist(p, exp.pos) > 8);
-  exp.entity = far.length ? dice.pick(far) : { ...lv.entity };
 
   if (!victim) {
     say(exp, dice, crew, RADIO.ESCAPE);
-    return;
+    return survived(state, exp, r, dice, crew);
   }
   const medic = crew.find((w) => w !== victim && skill(w, "medical") >= 4);
   if (medic && dice.chance(0.3)) {
     exp.log.push(`${first(medic)}: Got ${first(victim)} out of there. Bleeding, but walking.`);
-    return;
+    return survived(state, exp, r, dice, crew);
   }
   const survivors = crew.filter((w) => w !== victim);
   // Their own last line on the radio, for the plaque.
@@ -251,7 +296,8 @@ function encounter(state: GameState, lv: Level, exp: Expedition, dice: Dice, cre
     exp.log.push(...RADIO.WIPE);
     return finish(state, exp);
   }
-  say(exp, dice, survivors, RADIO.DEATH, { m: first(victim) });
+  say(exp, dice, survivors, r.id === "hound" ? RADIO.HOUND_DEATH : RADIO.DEATH, { m: first(victim) });
+  survived(state, exp, r, dice, survivors);
   const lead = survivors.find((w) => w.id === exp.leadId) ?? survivors[0];
   exp.leadId = lead.id;
   if (exp.phase !== "in") return;
@@ -260,6 +306,32 @@ function encounter(state: GameState, lv: Level, exp: Expedition, dice: Dice, cre
     if (hasQuirk(lead, "debts") && !exp.carried.length) return revealLine(exp, lead, "debts");
     exp.log.push(fill(dice.pick(RADIO.RETREAT), { n: first(lead) }));
     turnBack(lv, exp);
+  }
+}
+
+// Facelings are harmless, but crews who don't know that panic.
+function facelingEncounter(state: GameState, lv: Level, exp: Expedition, dice: Dice, crew: Worker[]): void {
+  const r = exp.entities.find((e) => e.id === "faceling")!;
+  const lead = crew.find((w) => w.id === exp.leadId) ?? crew[0];
+  const calm = stageOf(state, "faceling") >= 2 || hasQuirk(lead, "calm");
+  if (!calm && exp.phase === "in" && dice.chance(0.5 - skill(lead, "morale") * 0.08)) {
+    say(exp, dice, crew, RADIO.FACELING_PANIC);
+    turnBack(lv, exp);
+  } else {
+    say(exp, dice, crew, RADIO.FACELING_PASS);
+  }
+  survived(state, exp, r, dice, crew);
+}
+
+// Living through an encounter teaches the Index something and can leave a sample.
+function survived(state: GameState, exp: Expedition, r: Roamer, dice: Dice, crew: Worker[]): void {
+  if (!crew.length) return;
+  const note = learn(state, r.id, 2, crew[0].name);
+  if (note) exp.log.push(note);
+  const chance = r.id === "faceling" ? (isMastered(state, "faceling") ? 0.75 : 0.5) : 0.35;
+  if (dice.chance(chance)) {
+    exp.carried.push(`sample-${r.id}`);
+    say(exp, dice, crew, RADIO.SAMPLE);
   }
 }
 
@@ -287,7 +359,14 @@ function finish(state: GameState, exp: Expedition): void {
   }
   notes.push(...exp.log.filter((l) => l.startsWith("HR learned something")));
   exp.dice = dice.state;
-  for (const itemId of loot) state.loot.push({ id: state.nextId++, itemId, foundBy: alive[0].name });
+  for (const itemId of loot) {
+    state.loot.push({ id: state.nextId++, itemId, foundBy: alive[0].name });
+    const note = broughtHome(state, itemId, alive[0].name);
+    if (note) notes.push(note);
+  }
+  const survey = checkSurvey(state, level0(state));
+  if (survey) notes.push(survey);
+  notes.push(...exp.log.filter((l) => l.startsWith("Index updated") && !notes.includes(l)));
   exp.result = { survivors: alive.length, dead: dead.map((w) => w.name), loot, notes };
   for (const w of dead) {
     const plaque = state.memos.length % PLAQUES.length;

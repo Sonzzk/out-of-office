@@ -4,7 +4,8 @@ export interface ItemDef {
   name: string;
   art: string;
   value: number; // base sale price
-  rarity: number; // relative spawn weight
+  rarity: number; // relative spawn weight, 0 = never lies on the floor
+  sampleOf?: string; // entity id: samples can be sold or researched, never both
 }
 
 export const ITEMS: Record<string, ItemDef> = {
@@ -14,4 +15,8 @@ export const ITEMS: Record<string, ItemDef> = {
   "flashlight": { id: "flashlight", name: "Dead Flashlight", art: "I05-flashlight.png", value: 120, rarity: 3 },
   "royal-ration": { id: "royal-ration", name: "Royal Ration", art: "I03-royal-ration.png", value: 200, rarity: 2 },
   "level-key": { id: "level-key", name: "Level Key", art: "I09-level-key.png", value: 480, rarity: 1 },
+  // Samples come off entities a crew survived. Art is the generic sample jar.
+  "sample-smiler": { id: "sample-smiler", name: "Smiler Residue", art: "../icons/U-sample-jar.png", value: 320, rarity: 0, sampleOf: "smiler" },
+  "sample-hound": { id: "sample-hound", name: "Hound Tooth", art: "../icons/U-sample-jar.png", value: 260, rarity: 0, sampleOf: "hound" },
+  "sample-faceling": { id: "sample-faceling", name: "Faceling Skin Flake", art: "../icons/U-sample-jar.png", value: 150, rarity: 0, sampleOf: "faceling" },
 };

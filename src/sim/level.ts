@@ -18,7 +18,8 @@ export interface Level {
   cells: number[];
   entrance: Pt;
   loot: { at: Pt; itemId: string }[];
-  entity: Pt;
+  entity: Pt; // where the Smiler starts
+  spawns: { id: string; at: Pt }[]; // every entity on the level, Smiler first
 }
 
 export const idx = (lv: { w: number }, p: Pt) => p.y * lv.w + p.x;
@@ -77,7 +78,14 @@ export function generateLevel(seed: number, w = 30, h = 20): Level {
 
   const darkCells = floor.filter((p) => cells[p.y * w + p.x] === DARK);
   const entity = dice.pick(darkCells.length ? darkCells : far);
-  return { w, h, cells, entrance, loot, entity };
+  // Picked after everything else so older seeds keep their layout.
+  const lit = far.filter((p) => cells[p.y * w + p.x] === FLOOR && dist(p, entrance) > 10);
+  const spawns = [
+    { id: "smiler", at: entity },
+    { id: "hound", at: dice.pick(lit.length ? lit : far) },
+    { id: "faceling", at: dice.pick(far) },
+  ];
+  return { w, h, cells, entrance, loot, entity, spawns };
 }
 
 // Breadth-first path over open cells. Returns the steps after `from`, ending at

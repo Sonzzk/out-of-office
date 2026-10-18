@@ -25,10 +25,11 @@ export const PEOPLE = [
 
 export const CLONE_PORTRAITS = ["clone07.png", "clone06.png"];
 
-export const SOURCE_INFO: Record<Source, { label: string; pitch: string }> = {
-  desperate: { label: "Desperate hire", pitch: "Answered the flyer. Did not read the flyer." },
-  prisoner: { label: "Bribed prisoner", pitch: "Released into your care. Paperwork pending forever." },
-  clone: { label: "Vat clone", pitch: "Cheap. Slightly off. Do not ask about the other ones." },
+// wage is paid every evening, see economy.ts payroll.
+export const SOURCE_INFO: Record<Source, { label: string; pitch: string; wage: number }> = {
+  desperate: { label: "Desperate hire", pitch: "Answered the flyer. Did not read the flyer.", wage: 40 },
+  prisoner: { label: "Bribed prisoner", pitch: "Released into your care. Paperwork pending forever.", wage: 25 },
+  clone: { label: "Vat clone", pitch: "Cheap. Slightly off. Do not ask about the other ones.", wage: 15 },
 };
 
 export interface QuirkDef {

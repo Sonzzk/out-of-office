@@ -83,7 +83,7 @@ export function renderExpedition(body: HTMLElement): void {
     const full = picked.size >= MAX_CREW;
     side.innerHTML = `
       <img class="lvl" src="${art.level("L00-waiting-floor.png")}" alt="">
-      <div class="lvname"><b>Level 0</b> · The Waiting Floor<br><span class="dim">Class 1. Endless yellow halls. Smilers in the dark patches.</span></div>
+      <div class="lvname"><b>Level 0</b> · The Waiting Floor<br><span class="dim">Class 1. Endless yellow halls. Smilers in the dark, Hounds in the halls.</span></div>
       <h4>1. Pick a crew</h4>
       ${
         idle.length
@@ -197,7 +197,11 @@ export function renderExpedition(body: HTMLElement): void {
     if (mk) cross(ctx, ox + mk.x * cell + cell / 2, oy + mk.y * cell + cell / 2, cell * 0.38);
 
     if (exp && exp.phase !== "done") {
-      if (exp.entitySeen) smiler(ctx, ox + exp.entity.x * cell + cell / 2, oy + exp.entity.y * cell + cell / 2, cell * 0.42);
+      for (const r of exp.entities) {
+        if (!r.seen) continue;
+        const draw = r.id === "hound" ? hound : r.id === "faceling" ? faceling : smiler;
+        draw(ctx, ox + r.pos.x * cell + cell / 2, oy + r.pos.y * cell + cell / 2, cell * 0.42);
+      }
       const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 160);
       ctx.fillStyle = `rgba(214,58,36,${pulse})`;
       ctx.beginPath();
@@ -254,5 +258,33 @@ function smiler(ctx: CanvasRenderingContext2D, x: number, y: number, r: number):
   ctx.lineWidth = Math.max(1, r / 4);
   ctx.beginPath();
   ctx.arc(x, y, r * 0.75, 0.15 * Math.PI, 0.85 * Math.PI);
+  ctx.stroke();
+}
+
+function hound(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  // A low red wedge pointing forward: something on all fours.
+  ctx.fillStyle = "#7a1d12";
+  ctx.strokeStyle = "#f3ecc0";
+  ctx.lineWidth = Math.max(1, r / 5);
+  ctx.beginPath();
+  ctx.moveTo(x - r * 1.2, y + r * 0.7);
+  ctx.lineTo(x + r * 1.2, y + r * 0.7);
+  ctx.lineTo(x, y - r * 1.1);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#ffd23a";
+  ctx.fillRect(x - r * 0.35, y - r * 0.05, r * 0.22, r * 0.22);
+  ctx.fillRect(x + r * 0.13, y - r * 0.05, r * 0.22, r * 0.22);
+}
+
+function faceling(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  // A blank oval head: no features at all.
+  ctx.fillStyle = "#d8c7a8";
+  ctx.strokeStyle = "#1d1a0e";
+  ctx.lineWidth = Math.max(1, r / 5);
+  ctx.beginPath();
+  ctx.ellipse(x, y, r * 0.8, r * 1.1, 0, 0, Math.PI * 2);
+  ctx.fill();
   ctx.stroke();
 }

@@ -66,6 +66,33 @@ if (await page.locator("[data-clockin]").count()) await page.click("[data-clocki
 await page.click('[data-open="hr"]');
 console.log("crew after reload:", await page.locator(".hr .roster .crewrow").count());
 
+// Index and Lab, with a save that already knows a few things.
+await page.evaluate(() => {
+  const s = JSON.parse(localStorage.getItem("out-of-office.save"));
+  s.index.smiler = { stage: 3, by: s.crew[0]?.name, count: 2, dataSold: 0 };
+  s.index.hound = { stage: 2, by: s.crew[0]?.name, count: 0, dataSold: 0 };
+  s.index.faceling = { stage: 1, by: s.crew[0]?.name, count: 0, dataSold: 0 };
+  s.index["almond-water"] = { stage: 1, by: s.crew[0]?.name, count: 1, dataSold: 0 };
+  s.loot.push({ id: 9001, itemId: "sample-hound", foundBy: s.crew[0]?.name ?? "?" });
+  localStorage.setItem("out-of-office.save", JSON.stringify(s));
+});
+await page.goto(`http://localhost:5198/?fast`);
+await page.waitForSelector("#desk .win, [data-clockin]");
+if (await page.locator("[data-clockin]").count()) await page.click("[data-clockin]");
+await page.click('[data-open="index"]');
+const index = page.locator('.win[data-app="index"]');
+await index.locator('[data-entry="smiler"]').click();
+await page.screenshot({ path: "shots/loop-9-index.png" });
+await index.locator("[data-selldata]").click();
+await index.locator('[data-entry="faceling"]').click();
+await page.screenshot({ path: "shots/loop-10-index-seen.png" });
+await page.click('[data-open="lab"]');
+const lab = page.locator('.win[data-app="lab"]');
+await lab.locator("[data-research]").first().click();
+console.log("lab:", (await lab.locator(".bench").textContent()).trim().replace(/\s+/g, " "));
+await page.click('[data-open="ledger"]');
+await page.screenshot({ path: "shots/loop-11-lab-ledger.png" });
+
 await browser.close();
 await server.close();
 if (errors.length) {
