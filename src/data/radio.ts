@@ -23,3 +23,30 @@ export const ARRIVE = ["{n}: Reached your marker. It's an empty room. Great.", "
 export const RETREAT = ["{n}: That's it. I'm calling it. We're coming back.", "{n}: Team lead's call: we turn around. Dock my pay."];
 export const HOME = ["{n}: Back at the door. Never again. Until tomorrow."];
 export const WIPE = ["...static..."];
+
+// Per-entity lines. SPOTTED above is the Smiler's.
+export const SPOTTED_HOUND = [
+  "{n}: Something on all fours down the hall. It's sniffing.",
+  "{n}: Heard panting. Not ours. Keep together.",
+];
+export const SPOTTED_FACELING = [
+  "{n}: There's a guy in a suit. He doesn't have a face. He waved.",
+  "{n}: Someone's walking toward us. No eyes, no mouth. Just... skin.",
+];
+export const HOUND_BACKS_OFF = [
+  "{n}: The dog thing looked at all of us and backed off. Strength in numbers.",
+  "{n}: It circled us twice and left. Nobody split up. Good.",
+];
+export const HOUND_DEATH = ["{n}: It went for {m}. Dragged them round the corner. We heard it finish."];
+export const FACELING_PASS = [
+  "{n}: The faceless guy walked right past. Didn't even slow down. Rude, honestly.",
+  "{n}: Faceling passed us. Nobody screamed this time. Progress.",
+];
+export const FACELING_PANIC = [
+  "{n}: It stood right in front of me. No face. I'm done. We're leaving.",
+  "{n}: {m} is screaming at the faceless thing. We're pulling out.",
+];
+export const SAMPLE = [
+  "{n}: It left something behind. Bagging it for the lab. Gloves on.",
+  "{n}: Scraped a bit of it off the wall. You wanted samples, right?",
+];

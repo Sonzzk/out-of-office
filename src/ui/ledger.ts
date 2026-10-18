@@ -1,5 +1,5 @@
 import { ITEMS } from "../data/items";
-import { canEndDay, endDay, sell, sellPrice } from "../sim/economy";
+import { canEndDay, endDay, sell, sellPrice, wage } from "../sim/economy";
 import { game, update, watch } from "../store";
 import { art, esc, money } from "./dom";
 
@@ -15,6 +15,7 @@ export function renderLedger(body: HTMLElement): void {
     const s = game();
     body.innerHTML = `
       <div class="cash inset"><span class="dim">Balance</span><b>${money(s.cash)}</b></div>
+      ${target(s)}
       <h3>Loot on hand</h3>
       ${
         s.loot.length
@@ -32,7 +33,18 @@ export function renderLedger(body: HTMLElement): void {
         .slice(0, 40)
         .map((e) => `<tr><td class="dim">D${e.day}</td><td>${esc(e.text)}</td><td class="${e.amount < 0 ? "neg" : "pos"}">${money(e.amount)}</td></tr>`)
         .join("")}</table>
+      <p class="dim">Tonight's payroll: ${money(s.crew.filter((w) => w.status !== "dead").reduce((a, w) => a + wage(w), 0))}${s.research ? ". The lab reports tonight." : ""}</p>
       <button class="btn" data-endday ${canEndDay(s) ? "" : "disabled"}>Close the books (end Day ${s.day})</button>
       ${canEndDay(s) ? "" : `<p class="dim">A crew is still out. You can't go home yet.</p>`}`;
   });
+}
+
+// The Board's target for this fiscal year, as a progress bar.
+function target(s: ReturnType<typeof game>): string {
+  const t = s.target;
+  const pct = Math.max(0, Math.min(100, Math.round((100 * s.cash) / t.amount)));
+  const days = t.deadline - s.day;
+  const when = days <= 0 ? "due tonight" : days === 1 ? "due tomorrow" : `${days} days left`;
+  return `<div class="target inset"><div class="dim">Fiscal year ${t.year} target: <b>${money(t.amount)}</b> by Day ${t.deadline} (${when})</div>
+    <div class="bar"><i style="width:${pct}%" class="${pct >= 100 ? "met" : ""}"></i></div></div>`;
 }

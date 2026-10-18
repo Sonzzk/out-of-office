@@ -3,7 +3,7 @@ import { gainXp, generatePool, hire, skill, type Worker } from "../src/sim/crew"
 import { endDay } from "../src/sim/economy";
 import { startExpedition, stepExpedition, suggestLead } from "../src/sim/expedition";
 import { Dice } from "../src/sim/rng";
-import { migrate, newGame, type GameState } from "../src/sim/state";
+import { migrate, newGame, SAVE_VERSION, type GameState } from "../src/sim/state";
 
 function hireAll(s: GameState, n = 3): Worker[] {
   for (const w of s.pool.slice(0, n)) {
@@ -91,7 +91,8 @@ describe("crew", () => {
       delete w.level;
     }
     const m = migrate(old)!;
-    expect(m.version).toBe(3);
+    expect(m.version).toBe(SAVE_VERSION);
+    expect(m.index["level-0"].stage).toBe(1);
     expect(m.pool[0].quirks).toHaveLength(1);
     expect(skill(m.pool[0], "nav")).toBeGreaterThanOrEqual(0);
   });
