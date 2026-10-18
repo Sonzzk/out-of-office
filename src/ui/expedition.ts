@@ -17,6 +17,7 @@ import { makeRng } from "../sim/rng";
 import type { GameState } from "../sim/state";
 import { game, update, watch, type Topic } from "../store";
 import { art, esc } from "./dom";
+import { attachClip } from "./clip";
 import { createBodycam, type Bodycam, type CamInput } from "./bodycam";
 
 // What the run was worth once the crew and the kit are paid for.
@@ -50,6 +51,7 @@ export function renderExpedition(body: HTMLElement): void {
   let planLevel = "level-0";
   const packed = new Set<string>(); // gear for the next run
   let cam: Bodycam | null = null;
+  let stopClip = () => {};
 
   // What the body camera needs to know about a run right now.
   function camInput(exp: Expedition): CamInput {
@@ -279,9 +281,12 @@ export function renderExpedition(body: HTMLElement): void {
           ${profitLine(exp)}</div>
           <button class="btn go" data-dismiss>Plan the next run</button>`
         : "";
-    side.innerHTML = `${tabs()}<canvas class="bodycam"></canvas><div class="callbox"></div><div class="orders"></div>${head}<div class="radio inset" aria-live="polite"></div>${debrief}`;
+    side.innerHTML = `${tabs()}<canvas class="bodycam"></canvas><button class="btn clip" data-clip title="Save the last 30 seconds or so of the feed as a WebM">Clip last 30 seconds</button><div class="callbox"></div><div class="orders"></div>${head}<div class="radio inset" aria-live="polite"></div>${debrief}`;
     logCount = 0;
-    cam = createBodycam(side.querySelector<HTMLCanvasElement>("canvas.bodycam")!, camInput(exp));
+    const camCanvas = side.querySelector<HTMLCanvasElement>("canvas.bodycam")!;
+    cam = createBodycam(camCanvas, camInput(exp));
+    stopClip();
+    stopClip = attachClip(camCanvas, side.querySelector<HTMLButtonElement>("[data-clip]")!);
     appendLog(exp);
     renderCall(exp);
   }

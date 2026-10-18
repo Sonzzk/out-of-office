@@ -5,6 +5,8 @@ import { apps } from "./apps";
 import { isCalm, isMuted, setCalm, setMuted, sfx } from "./audio";
 import { refreshCalm } from "./uncanny";
 import { has } from "../sim/projects";
+import { benches, tier } from "../sim/facilities";
+import { daySummary } from "../sim/summary";
 import { esc } from "./dom";
 import { shownName } from "../privacy";
 import { startFourthWall } from "./fourthwall";
@@ -25,6 +27,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
       <div class="tray inset">
         <span class="hide-sm"><img src="./art/icons/U-cash.png" alt=""><b data-cash></b></span>
         <span class="hide-sm"><img src="./art/icons/U-heat.png" alt="">Heat <b data-heat></b></span>
+        <span class="hide-sm fac" data-fac hidden></span>
         <span class="hide-sm" data-floor hidden><b>FL 2</b></span>
         <span class="hide-sm" data-air hidden><img src="./art/icons/U-infection.png" alt="">Air <b></b></span>
         <button class="hum" data-calm></button>
@@ -66,6 +69,15 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   };
   for (const app of list) item(app.icon, app.title, () => openApp(app));
   items.appendChild(document.createElement("hr"));
+  item("./art/icons/U-document.png", "Copy day summary", async () => {
+    const text = daySummary(game());
+    try {
+      await navigator.clipboard.writeText(text);
+      notify(desk, "./art/icons/U-document.png", "Copied", text);
+    } catch {
+      dialog("Day summary", text, ["OK"]); // no clipboard here: show it instead
+    }
+  });
   item("./art/icons/U-document.png", "Help", () =>
     dialog("Help", "Help is not available on this workstation. Have you tried working harder?", ["OK"]),
   );
@@ -145,6 +157,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
     air.hidden = state.infection < 20;
     air.querySelector("b")!.textContent = state.infection >= 60 ? "BAD" : `${100 - state.infection}%`;
     projects(desk, state);
+    facilities(desk, state);
     // Once in a long while the clock says 11:47 PM for a few seconds. It always does.
     if (frozen > 0) frozen--;
     else if (Math.random() < 0.0015) frozen = 6;
@@ -207,4 +220,17 @@ function projects(desk: HTMLElement, state: GameState): void {
   }
   const html = `<b>In memory</b>${dead.length ? dead.map((w) => `<div>${esc(w.name)}</div>`).join("") : `<div class="dim">Nobody. Yet.</div>`}`;
   if (note.innerHTML !== html) note.innerHTML = html;
+}
+
+// Facility upgrades show in the tray: dispatch lines, antenna, door camera and lab benches.
+function facilities(desk: HTMLElement, state: GameState): void {
+  const parts: [string, string][] = [];
+  if (tier(state, "dispatch")) parts.push([`TEL ${2 + tier(state, "dispatch")}`, `Dispatch Desk: ${2 + tier(state, "dispatch")} phone lines`]);
+  if (tier(state, "mast")) parts.push(["ANT" + "I".repeat(tier(state, "mast")), `Radio Mast tier ${tier(state, "mast")}`]);
+  if (tier(state, "security")) parts.push([`<span class="camdot"></span>CAM`, `Security Desk tier ${tier(state, "security")}: door camera`]);
+  if (tier(state, "lab")) parts.push([`BN ${benches(state)}`, `Lab: ${benches(state)} benches`]);
+  const el = desk.querySelector<HTMLElement>("[data-fac]")!;
+  el.hidden = !parts.length;
+  const html = parts.map(([t, title]) => `<b title="${esc(title)}">${t}</b>`).join(" ");
+  if (el.innerHTML !== html) el.innerHTML = html;
 }
