@@ -183,3 +183,6 @@ button:focus-visible, .btn:focus-visible, .tb button:focus-visible, .taskbar but
   .ic { transition: none; }
   .toast { animation: none; }
 }
+
+/* Body camera feed on the Facility Map */
+.bodycam { display: block; width: 100%; aspect-ratio: 8 / 5; image-rendering: pixelated; background: #000; border: 2px solid var(--sh); margin: 4px 0 6px; }

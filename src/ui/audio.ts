@@ -245,7 +245,7 @@ export function humFlicker(ms: number): void {
   sfx("tick");
 }
 
-type Sfx = "click" | "open" | "close" | "ding" | "tick" | "type" | "memo" | "key" | "return" | "squelch";
+type Sfx = "click" | "open" | "close" | "ding" | "tick" | "type" | "memo" | "key" | "return" | "squelch" | "step" | "thump" | "growl";
 
 export function sfx(kind: Sfx): void {
   if (!ctx || !master) return;
@@ -269,6 +269,17 @@ export function sfx(kind: Sfx): void {
     case "squelch": // a radio line arrives
       burst(t, 0.09, 1900, 0.3);
       burst(t + 0.14, 0.03, 2600, 0.15);
+      break;
+    case "step": // a footfall on damp carpet, slightly different each time
+      burst(t, 0.07, 160 + Math.random() * 80, 0.28);
+      burst(t, 0.03, 900 + Math.random() * 300, 0.05);
+      break;
+    case "thump": // a heartbeat, close to the microphone
+      burst(t, 0.12, 70, 0.55);
+      burst(t + 0.16, 0.1, 62, 0.4);
+      break;
+    case "growl": // something low and wet in the signal
+      for (let i = 0; i < 6; i++) burst(t + i * 0.09, 0.18, 90 + Math.random() * 120, 0.22);
       break;
     case "open":
       tone(t, 520, 0.05, 0.05);
