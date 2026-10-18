@@ -149,6 +149,8 @@ export function openApp(app: AppDef, at?: { x: number; y: number }): HTMLElement
     <div class="body"></div>
     <div class="grip" aria-hidden="true"></div>`;
   el.querySelector(".tb span")!.textContent = app.title;
+  el.setAttribute("role", "dialog");
+  el.setAttribute("aria-label", app.title);
   const tb = el.querySelector<HTMLElement>(".tb")!;
   tb.addEventListener("click", (e) => {
     const act = (e.target as HTMLElement).dataset.act;
@@ -274,3 +276,12 @@ function makeResizable(win: HTMLElement, grip: HTMLElement): void {
     () => window.dispatchEvent(new Event("win-resized")),
   );
 }
+
+// Escape closes the window on top, unless you are typing in a field.
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const t = e.target as HTMLElement;
+  if (t.matches?.("input, textarea, select")) return;
+  const top = [...open.entries()].find(([, w]) => w.el.classList.contains("active") && !w.minimized);
+  if (top) close(top[0]);
+});

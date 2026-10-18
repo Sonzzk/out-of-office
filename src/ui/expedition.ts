@@ -24,6 +24,8 @@ export function renderExpedition(body: HTMLElement): void {
     <div class="mapwrap"><canvas class="map"></canvas></div>
     <div class="side"></div>`;
   const canvas = body.querySelector("canvas")!;
+  canvas.setAttribute("role", "img");
+  canvas.setAttribute("aria-label", "Facility map of the selected level. The radio log beside it describes what the crew finds.");
   const side = body.querySelector<HTMLElement>(".side")!;
   let marker: Pt | null = null;
   const picked = new Set<number>();

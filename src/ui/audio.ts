@@ -22,7 +22,9 @@ const HUM_LEVEL = 0.05;
 
 try {
   muted = localStorage.getItem(MUTE_KEY) === "1";
-  calm = localStorage.getItem(CALM_KEY) === "1";
+  const stored = localStorage.getItem(CALM_KEY);
+  // People who ask their system for less motion start in calm mode until they choose otherwise.
+  calm = stored === null ? window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true : stored === "1";
   const v = Number(localStorage.getItem(VOL_KEY));
   if (localStorage.getItem(VOL_KEY) !== null && v >= 0 && v <= 1) volume = v;
 } catch {
@@ -169,7 +171,9 @@ function startMuzak(): void {
   let nextAt = ctx.currentTime + 1;
   const schedule = () => {
     if (!ctx || !muzak) return;
-    while (nextAt < ctx.currentTime + 4) {
+    // Muted or in a background tab: keep time, but don't build notes nobody can hear.
+    if (muted || document.hidden) nextAt = Math.max(nextAt, ctx.currentTime + 1);
+    while (nextAt < ctx.currentTime + 4 && !muted && !document.hidden) {
       const u = effectiveUnease();
       const len = 2.4 + u * 3.2; // the tune drags
       const chord = CHORDS[bar % CHORDS.length];

@@ -45,6 +45,7 @@ function flicker(desk: HTMLElement): void {
       const dark = rand(0.15, 0.35 + unease * 0.5);
       const len = rand(30, 90);
       later(() => {
+        if (document.hidden) return;
         veil.style.opacity = String(dark);
         humFlicker(len);
       }, t);
@@ -145,6 +146,7 @@ function lookAway(desk: HTMLElement): void {
 export function notify(desk: HTMLElement, icon: string, title: string, text: string, ms = 9000): void {
   const n = document.createElement("div");
   n.className = "toast";
+  n.setAttribute("role", "status");
   n.innerHTML = `<img alt=""><div><b></b><p></p></div>`;
   n.querySelector("img")!.src = icon;
   n.querySelector("b")!.textContent = title;

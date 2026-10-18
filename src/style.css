@@ -154,3 +154,23 @@ canvas.map { display: block; width: 100%; height: 100%; background: #0e1208; }
 .handbook .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .handbook .row input[type="range"] { flex: 1; }
 .handbook .credit p { margin: 2px 0 6px; }
+
+/* Touch and keyboard (milestone 4.3). */
+html { touch-action: manipulation; } /* no double-tap zoom, so double-tap on a title bar can maximize */
+button:focus-visible, .btn:focus-visible, .tb button:focus-visible, .taskbar button:focus-visible, input:focus-visible {
+  outline: 2px dotted var(--ink); outline-offset: 1px;
+}
+.ic:focus-visible { outline: 2px dotted #f3ecc0; outline-offset: 2px; }
+@media (pointer: coarse) {
+  .tb { height: 32px; }
+  .tb button { width: 32px; height: 26px; }
+  .grip { width: 28px; height: 28px; }
+  .btn { min-height: 34px; }
+  .taskbar button { min-height: 32px; }
+  .ic { min-height: 64px; }
+  .handbook .opt { padding: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ic { transition: none; }
+  .toast { animation: none; }
+}
