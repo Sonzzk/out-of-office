@@ -1,4 +1,4 @@
-import { EVENTS, GARY_PAY, GENERATOR_COST, VENDING_FEED, VENDING_PRIZES } from "../data/events";
+import { CLOCKOUT_PAY, DOOR_COST, DOOR_PRIZES, EVENTS, GARY_PAY, GENERATOR_COST, VENDING_FEED, VENDING_PRIZES } from "../data/events";
 import { ITEMS } from "../data/items";
 import type { Worker } from "./crew";
 import { addHeat, addInfection } from "./office";
@@ -6,7 +6,7 @@ import { Dice } from "./rng";
 import { fill, type GameState, type Memo } from "./state";
 
 const money = (n: number) => `$${n.toLocaleString("en-US")}`;
-const EVENT_CHANCE = 0.5;
+const EVENT_CHANCE = 0.6;
 const FIRST_EVENT_DAY = 3;
 
 const pricier = (s: GameState) => 150 + 75 * (s.events.count.inspector ?? 0);
@@ -25,6 +25,8 @@ function candidates(state: GameState, dice: Dice): { id: string; weight: number;
   out.push({ id: "outage", weight: 1, vars: { cost: money(GENERATOR_COST) } });
   out.push({ id: "vending", weight: 1, vars: { cost: money(VENDING_FEED) } });
   if (idle.length >= 3 && prize) out.push({ id: "rival", weight: 1, vars: { name: prize.name, worker: prize.id, price: money(400 + 150 * prize.level), raw: 400 + 150 * prize.level } });
+  if (idle.length && state.infection >= 8) out.push({ id: "clockout", weight: 1.5, vars: { name: dice.pick(idle).name, raw: CLOCKOUT_PAY } });
+  out.push({ id: "door", weight: 1, vars: { cost: money(DOOR_COST), raw: DOOR_COST } });
   out.push({ id: "gary", weight: state.infection >= 10 ? 1.5 : 0.5, vars: {} });
   return out.filter((c) => state.day - (state.events.last[c.id] ?? -99) >= EVENTS[c.id].cooldown);
 }
@@ -69,6 +71,7 @@ export function canChoose(state: GameState, m: Memo, i: number): boolean {
   if (e.id === "inspector" && i === 1) return state.cash >= Number(e.vars.raw);
   if (e.id === "lawsuit" && i === 0) return state.cash >= Number(e.vars.raw);
   if (e.id === "outage" && i === 0) return state.cash >= GENERATOR_COST;
+  if (e.id === "door" && i === 0) return state.cash >= DOOR_COST;
   if (e.id === "vending" && i === 0) return state.cash >= VENDING_FEED;
   if (e.id === "rival" && i === 0) return !!state.crew.find((w) => w.id === Number(e.vars.worker) && w.status === "idle");
   return true;
@@ -159,6 +162,26 @@ function resolve(state: GameState, m: Memo, choice: number): string {
     }
     case "rival:1":
       return "Derek says he respects that. He sent a fruit basket. Nobody has opened it.";
+    case "clockout:0":
+      spend(state, CLOCKOUT_PAY, `Sent ${e.vars.name} home`);
+      return `${e.vars.name} left at 6:00. The cameras say they left at 6:00 yesterday too. The chair kept the shape.`;
+    case "clockout:1":
+      addInfection(state, 3);
+      return `${e.vars.name} is still there. They have started answering the phone with your name. Infection +3.`;
+    case "door:0": {
+      spend(state, DOOR_COST, "Locksmith for the new door");
+      if (dice.chance(0.6)) {
+        const item = dice.pick(DOOR_PRIZES);
+        state.loot.push({ id: state.nextId++, itemId: item, foundBy: "the door" });
+        return `Behind it: a small room, a table, and a ${ITEMS[item].name} on the table. The door was a wall again by morning. The item is in the Ledger.`;
+      }
+      addInfection(state, 5);
+      return "Behind it was our office, but with the lights off, and somebody at your desk. We closed it quickly. Infection +5.";
+    }
+    case "door:1":
+      return "Bricked up. By morning the bricks were on the other side.";
+    case "door:2":
+      return "Left alone. At 3 AM it knocked, then stopped, then knocked.";
     case "gary:0":
       state.cash += GARY_PAY;
       state.ledger.unshift({ day: state.day, text: "Accounts adjustment (Gary)", amount: GARY_PAY });

@@ -1,3 +1,4 @@
+import { goalText } from "../sim/goals";
 import { ITEMS } from "../data/items";
 import { canEndDay, endDay, sell, sellAll, sellPrice, wage } from "../sim/economy";
 import { upkeep } from "../sim/facilities";
@@ -22,6 +23,7 @@ export function renderLedger(body: HTMLElement): void {
     const s = game();
     body.innerHTML = `
       <div class="cash inset"><span class="dim">Balance</span><b>${money(s.cash)}</b></div>
+      ${goal(s)}
       ${target(s)}
       ${heat(s)}
       ${s.infection >= 10 ? `<div class="heat inset"><div class="dim">Facilities reports the air is <b>${s.infection >= 60 ? "bad" : s.infection >= 30 ? "damp" : "a bit off"}</b>.</div>
@@ -47,6 +49,15 @@ export function renderLedger(body: HTMLElement): void {
       <button class="btn" data-endday ${canEndDay(s) ? "" : "disabled"}>Close the books (end Day ${s.day})</button>
       ${canEndDay(s) ? "" : `<p class="dim">A crew is still out. You can't go home yet.</p>`}`;
   });
+}
+
+// Today's goal from the Board.
+function goal(s: ReturnType<typeof game>): string {
+  const g = s.goal;
+  if (!g || g.day !== s.day) return "";
+  const pct = Math.min(100, Math.round((100 * g.have) / g.need));
+  return `<div class="target inset"><div class="dim">Today's goal: <b>${goalText(g)}</b> ${g.done ? "Done, bonus paid." : `Pays ${money(g.reward)}. (${g.have}/${g.need})`}</div>
+    <div class="bar"><i style="width:${pct}%" class="${g.done ? "met" : ""}"></i></div></div>`;
 }
 
 // The Board's target for this fiscal year, as a progress bar.
