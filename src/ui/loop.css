@@ -1,0 +1,74 @@
+/* Styles for the thin-loop apps: HR, Facility Map, Ledger, Inbox. Shared
+   tokens and window chrome live in style.css. */
+.body h3 { font-size: 12px; margin: 10px 0 6px; display: flex; gap: 8px; align-items: baseline; }
+.body h3:first-child { margin-top: 0; }
+.body h4 { font-size: 11px; margin: 10px 0 4px; letter-spacing: .04em; }
+.body p { margin: 4px 0; }
+.btn:disabled { color: var(--dim); cursor: default; }
+.btn.go { background: var(--title); color: #efe9b4; }
+.btn.go:disabled { background: var(--beige); color: var(--dim); }
+.btn.big { font-size: 13px; padding: 7px 14px; width: 100%; margin-top: 8px; letter-spacing: .05em; }
+
+/* HR roster */
+.hr .cards { display: grid; gap: 8px; }
+.hr .card { display: flex; gap: 10px; padding: 8px; }
+.hr .pt { width: 72px; height: 90px; object-fit: cover; flex: none; border: 2px solid var(--sh); }
+.hr .info { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.hr .nm { font-weight: bold; font-size: 13px; }
+.sk { display: flex; gap: 6px; font-size: 11px; }
+.sk span { width: 78px; color: var(--dim); }
+.pips { font-style: normal; letter-spacing: 1px; color: var(--title); }
+.pips b { color: rgba(0,0,0,.15); font-weight: normal; }
+.quirk { font-size: 11px; }
+.hr .info .btn { justify-self: start; margin-top: 4px; }
+.roster .row, .loot .row { display: flex; align-items: center; gap: 8px; padding: 3px 0; border-bottom: 1px dotted var(--sh); }
+.roster img { width: 28px; height: 35px; object-fit: cover; }
+.roster .nm, .loot .nm { flex: 1; font-weight: bold; }
+.memoriam { display: grid; gap: 4px; font-size: 11px; }
+.memoriam i { color: var(--red); }
+
+/* Ledger */
+.ledger .cash { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 10px; }
+.ledger .cash b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.loot img { width: 36px; height: 36px; object-fit: contain; }
+.tx { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 8px; }
+.tx td { padding: 3px 6px; border-bottom: 1px dotted var(--beige); }
+.tx td:last-child { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tx .neg { color: var(--red); }
+
+/* Inbox */
+.inbox { display: grid; grid-template-columns: minmax(150px, 40%) 1fr; gap: 6px; }
+.inbox .list { overflow: auto; }
+.inbox .msg { padding: 5px 6px; display: grid; gap: 2px; cursor: pointer; border-bottom: 1px dotted var(--beige); font-size: 11px; }
+.inbox .msg.unread span:first-child { font-weight: bold; }
+.inbox .msg.unread span:first-child::before { content: "● "; color: var(--red); }
+.inbox .msg.on { background: var(--title); color: #efe9b4; }
+.inbox .msg.on .dim { color: #cfc79a; }
+.inbox .memo { overflow: auto; }
+
+/* Facility Map */
+.expo { display: flex; gap: 8px; padding: 6px; }
+.expo .mapwrap { flex: 1; min-width: 0; position: relative; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); }
+.expo canvas.map { position: absolute; inset: 0; cursor: crosshair; }
+.expo .side { width: 230px; flex: none; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+.expo .lvl { width: 100%; border: 2px solid var(--sh); }
+.expo .lvname { font-size: 11px; }
+.pick { display: flex; align-items: center; gap: 6px; padding: 2px 0; cursor: pointer; }
+.pick img { width: 22px; height: 27px; object-fit: cover; }
+.odds { margin-top: 6px; }
+.runhead { display: grid; gap: 2px; }
+.crewline { display: flex; gap: 4px; }
+.crewline img { width: 34px; height: 42px; object-fit: cover; border: 2px solid var(--sh); }
+.crewline .gone img { filter: grayscale(1) brightness(.5); border-color: var(--red); }
+.radio { flex: 1; min-height: 120px; overflow: auto; padding: 6px; font-size: 11px; background: #11140b; color: #c8e0a0; }
+.radio p { margin: 0 0 4px; }
+.debrief { padding: 6px; font-size: 11px; }
+
+@media (max-width: 640px) {
+  .expo { flex-direction: column; }
+  .expo .mapwrap { min-height: 220px; }
+  .expo .side { width: auto; }
+  .expo .lvl { display: none; }
+  .inbox { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .inbox .list { max-height: 120px; }
+}
