@@ -8,6 +8,7 @@ import { esc } from "./dom";
 import { shownName } from "../privacy";
 import { startFourthWall } from "./fourthwall";
 import { startGlitch } from "./glitch";
+import { startInfestation } from "./infestation";
 import { startTutorial } from "./tutorial";
 import { notify, startUncanny } from "./uncanny";
 import { dialog, initWindows, onWindowsChanged, openApp, openWindows, toggle } from "./windows";
@@ -155,6 +156,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   onChange(tick);
 
   startUncanny(desk, work);
+  startInfestation(desk, work);
   startGlitch(desk, () => shownName(game().bossName));
   startFourthWall(desk, game);
   startTutorial(desk);

@@ -1,6 +1,7 @@
 import { CALL_GAP, CALL_OUTCOMES, CALL_TICKS, CALL_TIMEOUT, CALLS, MAX_CALLS, THREAT_LINES, THREAT_OUTCOMES, THREAT_TICKS, VENDING_PRICE, type CallDef } from "../data/calls";
 import { entityDef } from "../data/entities";
-import { INFECTED_RADIO } from "../data/infection";
+import { ECHO_LINES, INFECTED_RADIO } from "../data/infection";
+import { infectionStage } from "./infection";
 import { GEAR, gearDef } from "../data/gear";
 import { ITEMS } from "../data/items";
 import { CHECKOUT_TICK, CHECKOUT_WARN, levelDef } from "../data/levels";
@@ -813,6 +814,11 @@ export function answerCall(state: GameState, exp: Expedition, choice: number): b
   if (!exp.call || exp.phase === "done") return false;
   const dice = new Dice(exp.dice);
   resolveCall(state, exp, choice, dice);
+  // Far enough in, the radio answers in your voice before you have.
+  if (infectionStage(state) >= 3 && state.catchphrase && dice.chance(0.25)) {
+    const lead = members(state, exp)[0];
+    if (lead) exp.log.push(fill(dice.pick(ECHO_LINES), { n: first(lead), boss: state.bossName, phrase: state.catchphrase }));
+  }
   exp.dice = dice.state;
   return true;
 }

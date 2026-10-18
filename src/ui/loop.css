@@ -214,3 +214,9 @@
 @keyframes feedflash { 50% { box-shadow: 0 0 0 2px #d9a400; } }
 @keyframes feedstatic { to { background-position: 0 8px; } }
 @media (prefers-reduced-motion: reduce) { .feeds .tile.alert, .feeds .nofeed .static { animation: none; } }
+
+/* Infection you can see: the stain on the desktop */
+.stain { position: absolute; left: 38%; bottom: 14%; width: 220px; height: 150px; pointer-events: none; z-index: 1; opacity: 0;
+  background: radial-gradient(ellipse at 40% 45%, rgba(70,55,20,.9) 0 30%, rgba(90,70,25,.55) 55%, rgba(90,70,25,0) 72%);
+  transform: scale(var(--grow, 1)) rotate(-8deg); transition: opacity 2s, transform 4s; mix-blend-mode: multiply; filter: blur(2px); }
+.breakroom p { margin: 6px 0; }

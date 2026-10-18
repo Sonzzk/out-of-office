@@ -47,6 +47,22 @@ export const INFECTED_RADIO = [
   "{n}: Found your coffee mug, {boss}. Still hot. Down here.",
 ];
 
+// Memos from people who are not coming back. {name}, {words} (their last words), {boss}.
+export const DEAD_MEMOS = [
+  { subject: "Re: Re: lunch", body: "Hi {boss}. Nobody told me the lunch order changed.\n\nI'm at my desk. I'm always at my desk. The chair is warm.\n\n- {name}" },
+  { subject: "Out of office (auto-reply)", body: "{name} is out of office until further notice.\n\n\"{words}\"\n\nIf your matter is urgent, please come down. We are all here." },
+  { subject: "Quick question", body: "Is the carpet supposed to move? Asking for a friend.\n\nThe friend is also me.\n\n- {name}" },
+  { subject: "Timesheet", body: "I've filled in my timesheet for the days I wasn't there. They add up to more than the days there were.\n\nPlease approve.\n\n- {name}" },
+  { subject: "See you at the 3 o'clock", body: "Reminder: the 3 o'clock is mandatory. Attendance is tracked. Everyone's coming.\n\nBring {boss}.\n\n- {name}" },
+];
+
+// The radio answers before you have. {boss}, {phrase}, {n}.
+export const ECHO_LINES = [
+  "{n}: Your answer came through before you pressed anything, {boss}. In your voice. \"{phrase}\".",
+  "{n}: We heard you say it, {boss}. Then we heard you say it again, a little later, a little wetter.",
+  "{n}: The radio replied in your voice. Word for word. Ahead of you.",
+];
+
 export const TITLE_AWAY = ["{boss}, come back", "Out of Office (1)", "We're still here, {boss}", "Don't close this tab"];
 
 export const DEEP_CLEAN_COST = 300;
