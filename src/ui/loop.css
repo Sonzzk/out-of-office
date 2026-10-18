@@ -123,9 +123,9 @@
 .lab .bench img { width: 48px; height: 48px; object-fit: contain; }
 
 /* Map: run tabs and radio calls */
-.runtabs { display: flex; flex-wrap: wrap; gap: 2px; }
-.runtabs .tab { font: inherit; font-size: 11px; padding: 2px 6px; background: var(--face, #c0c0c0); border: 2px outset #fff; cursor: pointer; }
-.runtabs .tab.on { border-style: inset; font-weight: bold; }
+.runtabs, .levels { display: flex; flex-wrap: wrap; gap: 2px; }
+.runtabs .tab, .levels .tab { font: inherit; font-size: 11px; padding: 2px 6px; background: var(--face, #c0c0c0); border: 2px outset #fff; cursor: pointer; }
+.runtabs .tab.on, .levels .tab.on { border-style: inset; font-weight: bold; }
 .runtabs .ring { color: #b3261e; animation: ring 0.6s steps(2) infinite; }
 @keyframes ring { 50% { color: transparent; } }
 .call { padding: 6px; display: grid; gap: 5px; font-size: 11px; border-color: #b3261e; background: #fff6d8; }

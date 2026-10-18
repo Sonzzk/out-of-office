@@ -47,8 +47,8 @@ export interface GameState {
   ledger: LedgerEntry[];
   memos: Memo[];
   level0Seed: number;
-  fog: number[]; // 1 = revealed cell on Level 0
-  takenToday: number[]; // indices of Level 0 loot already picked up today
+  fog: Record<string, number[]>; // per level id: 1 = revealed cell
+  takenToday: Record<string, number[]>; // per level id: loot already picked up today
   index: Record<string, IndexState>;
   research?: { itemId: string; startedDay: number }; // the lab's one bench
   target: { year: number; amount: number; deadline: number }; // the board's money target
@@ -56,7 +56,7 @@ export interface GameState {
   infectionSeen: number; // highest infection stage that has had its memo
 }
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 export const FIRST_TARGET = { year: 1, amount: 2500, deadline: 5 };
 
 // Bring older saves up to date instead of throwing them away.
@@ -91,6 +91,12 @@ export function migrate(save: any): GameState | null {
   if (save?.version === 5) {
     save.infectionSeen = 0;
     save.version = 6;
+  }
+  if (save?.version === 6) {
+    save.fog = { "level-0": save.fog ?? [] };
+    save.takenToday = { "level-0": save.takenToday ?? [] };
+    for (const e of save.expeditions) e.levelId ??= "level-0";
+    save.version = 7;
   }
   return save?.version === SAVE_VERSION ? (save as GameState) : null;
 }
@@ -138,8 +144,8 @@ export function newGame(seed: number, bossName = "Boss"): GameState {
     ledger: [{ day: 1, text: "Seed money (do not ask whose)", amount: 1200 }],
     memos: [],
     level0Seed: (seed * 7919 + 13) >>> 0,
-    fog: [],
-    takenToday: [],
+    fog: {},
+    takenToday: {},
     index: { "level-0": { stage: 1, count: 0, dataSold: 0 } },
     target: { ...FIRST_TARGET },
     heatWarned: false,

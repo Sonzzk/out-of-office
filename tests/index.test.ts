@@ -86,7 +86,7 @@ describe("Index and economy", () => {
     expect(s.index.polaroid.by).toBe("A");
     expect(stageOf(s, "level-0")).toBe(1);
     const lv = level0(s);
-    s.fog = lv.cells.map(() => 1);
+    s.fog["level-0"] = lv.cells.map(() => 1);
     const crew = hireAll(s, 1);
     crew[0].skills.stealth = 6;
     run(s, [crew[0].id]);

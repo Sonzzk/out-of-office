@@ -1,5 +1,6 @@
 import { INDEX, indexEntry, STAGE_NAME, type Stage } from "../data/index";
 import { ITEMS } from "../data/items";
+import { LEVELS } from "../data/levels";
 import { WALL, type Level } from "./level";
 import { addHeat, addInfection, HEAT_PER_DATA_SALE } from "./office";
 import type { GameState } from "./state";
@@ -36,22 +37,32 @@ export function learn(state: GameState, id: string, stage: Stage, by?: string): 
   return `Index updated: ${e.name} is now ${STAGE_NAME[target]}.`;
 }
 
-// Share of Level 0's open cells the crews have seen.
-export function surveyed(state: GameState, lv: Level): number {
+// Share of a level's open cells the crews have seen.
+export function surveyed(state: GameState, lv: Level, levelId = "level-0"): number {
+  const fog = state.fog[levelId] ?? [];
   let open = 0;
   let seen = 0;
   lv.cells.forEach((c, i) => {
     if (c === WALL) return;
     open++;
-    if (state.fog[i]) seen++;
+    if (fog[i]) seen++;
   });
   return open ? seen / open : 0;
 }
 
-export function checkSurvey(state: GameState, lv: Level): string | null {
-  const s = surveyed(state, lv);
+// A level is open to crews once it is at least Seen; Documenting a level opens the next.
+export const isUnlocked = (state: GameState, levelId: string) => stageOf(state, levelId) >= 1;
+
+export function checkSurvey(state: GameState, lv: Level, levelId = "level-0"): string[] {
+  const s = surveyed(state, lv, levelId);
   const stage: Stage = s >= SURVEY_MASTERED ? 3 : s >= SURVEY_DOCUMENTED ? 2 : 1;
-  return learn(state, "level-0", stage);
+  const notes = [learn(state, levelId, stage)];
+  const next = LEVELS.find((l) => l.depth === LEVELS.find((x) => x.id === levelId)!.depth + 1);
+  if (next && stageOf(state, levelId) >= 2 && !isUnlocked(state, next.id)) {
+    learn(state, next.id, 1);
+    notes.push(`New level unlocked: Level ${next.depth}, ${next.name}. Pick it on the Facility Map.`);
+  }
+  return notes.filter((n): n is string => !!n);
 }
 
 // Loot that reached the office counts toward documenting the item.

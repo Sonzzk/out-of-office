@@ -43,7 +43,8 @@ export function endDay(state: GameState): boolean {
   payroll(state);
   state.day++;
   checkTarget(state);
-  state.takenToday = [];
+  state.takenToday = {};
+  delete state.fog["level-5"]; // the hotel rearranges itself overnight
   state.expeditions = [];
   state.pool = generatePool(state);
   return true;
