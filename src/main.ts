@@ -4,11 +4,12 @@ import { loadGame, saveGame } from "./save";
 import { stepExpedition } from "./sim/expedition";
 import { newGame } from "./sim/state";
 import { TITLE_AWAY } from "./data/infection";
-import { uneaseFor } from "./sim/infection";
+import { infectionStage, uneaseFor } from "./sim/infection";
 import { fill } from "./sim/state";
 import { initStore, onChange, update, updateTick } from "./store";
 import { boot } from "./ui/boot";
 import { mountDesktop } from "./ui/desktop";
+import { setStage } from "./ui/glitch";
 import { setUnease } from "./ui/uncanny";
 
 // URL switches for testing: ?seed=7 starts a fresh game, ?fast skips the
@@ -18,7 +19,9 @@ const forcedSeed = params.get("seed");
 const state =
   (!forcedSeed && loadGame()) || newGame(forcedSeed ? Number(forcedSeed) : Math.floor(Math.random() * 2 ** 31));
 const forcedUnease = params.has("unease") ? Number(params.get("unease")) : null;
+const forcedStage = params.has("stage") ? Number(params.get("stage")) : null;
 setUnease(forcedUnease ?? uneaseFor(state));
+setStage(forcedStage ?? infectionStage(state));
 
 const desk = document.getElementById("desk")!;
 void boot(document.body, state, params.has("fast")).then(() => {
@@ -27,6 +30,7 @@ void boot(document.body, state, params.has("fast")).then(() => {
   mountDesktop(desk, state);
   // The desktop gets worse as the infection grows.
   if (forcedUnease === null) onChange(() => setUnease(uneaseFor(state)));
+  if (forcedStage === null) onChange(() => setStage(infectionStage(state)));
 });
 
 // Fourth wall: an infected office calls you back when you switch tabs.

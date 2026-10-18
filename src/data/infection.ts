@@ -45,3 +45,21 @@ export const TITLE_AWAY = ["{boss}, come back", "Out of Office (1)", "We're stil
 
 export const DEEP_CLEAN_COST = 300;
 export const DEEP_CLEAN_AMOUNT = 15;
+
+// How coworkers behave once the office is infected (shown on their HR card).
+export const ODD_MOODS = [
+  "Looks at you a half-second too long.",
+  "Has started wearing your lanyard.",
+  "Hums the muzak without hearing it.",
+  "Says good morning at night.",
+  "Has not blinked in the meeting. The meeting ended an hour ago.",
+  "Keeps straightening a desk that is not theirs.",
+];
+
+// Lines that creep onto the end of a warped memo, by stage.
+export const MEMO_INTRUSIONS = [
+  "Come in.",
+  "Please do not look up.",
+  "The door is open. It was always open.",
+  "We are very proud of you, {boss}.",
+];

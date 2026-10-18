@@ -1,3 +1,4 @@
+import { MEMO_INTRUSIONS } from "../data/infection";
 import { EVENTS } from "../data/events";
 import { answerEvent, canChoose, choiceLabel } from "../sim/events";
 import { infectionStage } from "../sim/infection";
@@ -49,7 +50,13 @@ function warp(s: GameState, id: number, html: string): string {
   if (stage < 2) return html;
   const rng = makeRng(id * 7919 + stage);
   const rate = [0, 0, 0.03, 0.07, 0.14][stage];
-  return html.replace(/\b[a-z]{5,}\b/g, (word) => (rng() < rate ? `<span class="warp">${esc(s.bossName)}</span>` : word));
+  const out = html.replace(/\b[a-z]{5,}\b/g, (word) => (rng() < rate ? `<span class="warp">${esc(s.bossName)}</span>` : word));
+  // From stage 3 some memos grow an extra line that nobody typed.
+  if (stage >= 3 && rng() < 0.35 * (stage - 2)) {
+    const line = MEMO_INTRUSIONS[Math.floor(rng() * MEMO_INTRUSIONS.length)].replace("{boss}", esc(s.bossName));
+    return `${out}\n\n<span class="warp">${line}</span>`;
+  }
+  return out;
 }
 
 // Event memos end with their choices, or with what happened once answered.
