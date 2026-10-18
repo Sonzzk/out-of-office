@@ -1,3 +1,5 @@
+import { STORY_EVENTS } from "./story";
+
 // Overnight events: a memo with a choice. Unanswered ones resolve with their
 // default when the books close. {vars} are filled when the event is rolled.
 export interface EventDef {
@@ -11,6 +13,7 @@ export interface EventDef {
 }
 
 export const EVENTS: Record<string, EventDef> = {
+  ...STORY_EVENTS,
   inspector: {
     id: "inspector",
     from: "Front Desk",
