@@ -96,8 +96,8 @@ export function renderHR(body: HTMLElement): void {
                   ${quirkLines(w)}${oddMood(w, infectionStage(s))}
                   ${
                     w.status === "idle"
-                      ? `<div class="jobs"><button class="btn" data-job="contract" data-worker="${w.id}" title="Safe work on the lit edge. Back tonight.">Safe contract +${money(contractPay(w))}</button>
-                        <button class="btn" data-job="overtime" data-worker="${w.id}" title="Pays well. Nobody likes the Overtime Room.">Unpaid overtime +${money(OVERTIME_PAY)}</button></div>`
+                      ? `<div class="jobs"><button class="btn" data-job="contract" data-worker="${w.id}" title="Safe work on the lit edge. Back tonight.">Safe contract +${money(contractPay(w))} (out today)</button>
+                        <button class="btn" data-job="overtime" data-worker="${w.id}" title="Pays well. Nobody likes the Overtime Room.">Unpaid overtime +${money(OVERTIME_PAY)} (out today)</button></div>`
                       : ""
                   }
                 </div></div>`,

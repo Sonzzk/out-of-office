@@ -13,6 +13,7 @@ import { answerCall, callTicks, levelOf, MAX_CREW, oddsWord, running, startExped
 import { infectionStage } from "../sim/infection";
 import { DARK, FLOOR, idx, type Pt } from "../sim/level";
 import { makeRng } from "../sim/rng";
+import type { GameState } from "../sim/state";
 import { game, update, watch, type Topic } from "../store";
 import { art, esc } from "./dom";
 
@@ -179,8 +180,11 @@ export function renderExpedition(body: HTMLElement): void {
                 ${picked.has(w.id) && picked.size > 1 ? `<label class="lead"><input type="radio" name="lead" data-lead="${w.id}" ${leadId === w.id ? "checked" : ""}>Lead</label>` : ""}</div>`,
               )
               .join("")
-          : `<p class="dim">Nobody available. Hire someone in HR Roster.</p>`
+          : s.crew.some((w) => w.status !== "dead")
+            ? `<p class="dim">Everyone is busy right now. They are back once you close the books.</p>`
+            : `<p class="dim">Nobody available. Hire someone in HR Roster.</p>`
       }
+      ${busyList(s)}
       ${picked.size ? `<p class="dim">Up to ${MAX_CREW}. The team lead decides when to turn back.</p>` : ""}
       <h4>2. Drop a marker</h4>
       <p class="dim">${marker ? "Marker set. Click the map to move it." : "Click anywhere on the map. Dark areas are unexplored."}</p>
@@ -417,6 +421,15 @@ export function renderExpedition(body: HTMLElement): void {
     draw();
   }
   new ResizeObserver(() => draw()).observe(canvas);
+}
+
+/** Crew who are not free, and why, so an empty picker is never a mystery. */
+function busyList(s: GameState): string {
+  const why = (w: GameState["crew"][number]) =>
+    w.status === "out" ? "in the field" : w.assignment === "overtime" ? "in the Overtime Room until tomorrow" : "on a safe contract until tomorrow";
+  const busy = s.crew.filter((w) => w.status === "out" || w.status === "busy");
+  if (!busy.length) return "";
+  return `<div class="dim busy">${busy.map((w) => `${esc(w.name)}: ${why(w)}`).join("<br>")}</div>`;
 }
 
 function cellSize(canvas: HTMLCanvasElement, lv: { w: number; h: number }): number {

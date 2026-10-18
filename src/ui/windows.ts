@@ -147,7 +147,8 @@ export function openApp(app: AppDef, at?: { x: number; y: number }): HTMLElement
       <button data-act="close" aria-label="Close">x</button>
     </div>
     <div class="body"></div>
-    <div class="grip" aria-hidden="true"></div>`;
+    <div class="grip" aria-hidden="true"></div>
+    ${["n", "s", "e", "w", "ne", "nw", "sw"].map((d) => `<div class="rz rz-${d}" data-edge="${d}" aria-hidden="true"></div>`).join("")}`;
   el.querySelector(".tb span")!.textContent = app.title;
   el.setAttribute("role", "dialog");
   el.setAttribute("aria-label", app.title);
@@ -165,7 +166,8 @@ export function openApp(app: AppDef, at?: { x: number; y: number }): HTMLElement
     if (!el.classList.contains("active")) focus(app.id);
   });
   makeDraggable(el, tb, app.id);
-  makeResizable(el, el.querySelector(".grip")!);
+  makeResizable(el, el.querySelector(".grip")!, "se");
+  el.querySelectorAll<HTMLElement>(".rz").forEach((h) => makeResizable(el, h, h.dataset.edge!));
 
   desk.appendChild(el);
   clamp(el);
@@ -260,18 +262,39 @@ function makeDraggable(win: HTMLElement, handle: HTMLElement, id: string): void 
   });
 }
 
-function makeResizable(win: HTMLElement, grip: HTMLElement): void {
+const MIN_W = 220;
+const MIN_H = 120;
+
+/** Drag an edge or corner (n, s, e, w, ne, nw, se, sw); left and top edges move the window too. */
+function makeResizable(win: HTMLElement, handle: HTMLElement, edge: string): void {
+  let l = 0;
+  let t = 0;
   let w = 0;
   let h = 0;
-  grip.addEventListener("pointerdown", () => {
+  handle.addEventListener("pointerdown", () => {
+    l = win.offsetLeft;
+    t = win.offsetTop;
     w = win.offsetWidth;
     h = win.offsetHeight;
   });
   drag(
-    grip,
+    handle,
     (dx, dy) => {
-      win.style.width = `${Math.max(220, Math.min(w + dx, desk.clientWidth - win.offsetLeft))}px`;
-      win.style.height = `${Math.max(120, Math.min(h + dy, desk.clientHeight - win.offsetTop))}px`;
+      let nl = l;
+      let nt = t;
+      let nw = w;
+      let nh = h;
+      if (edge.includes("e")) nw = Math.min(Math.max(MIN_W, w + dx), desk.clientWidth - l);
+      if (edge.includes("s")) nh = Math.min(Math.max(MIN_H, h + dy), desk.clientHeight - t);
+      if (edge.includes("w")) {
+        nl = Math.min(Math.max(0, l + dx), l + w - MIN_W);
+        nw = w + (l - nl);
+      }
+      if (edge.includes("n")) {
+        nt = Math.min(Math.max(0, t + dy), t + h - MIN_H);
+        nh = h + (t - nt);
+      }
+      Object.assign(win.style, { left: `${nl}px`, top: `${nt}px`, width: `${nw}px`, height: `${nh}px` });
     },
     () => window.dispatchEvent(new Event("win-resized")),
   );
