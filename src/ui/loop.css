@@ -122,6 +122,13 @@
 /* Lab */
 .lab .bench { display: flex; gap: 10px; align-items: center; padding: 8px; }
 .lab .bench img { width: 48px; height: 48px; object-fit: contain; }
+.lab .jar { flex: none; width: 54px; height: 64px; border: 2px solid var(--sh); border-radius: 6px 6px 14px 14px; background: linear-gradient(#cfe0c066, #9cb88a55); display: grid; place-items: center; }
+.lab .jar.full { background: linear-gradient(#e6e0a077, #b7a85a88); }
+.lab .jar img { width: 36px; height: 36px; }
+.lab .prog { display: block; height: 7px; margin: 4px 0; border: 1px solid var(--sh); background: var(--paper); }
+.lab .prog i { display: block; height: 100%; width: 100%; background: var(--title); animation: lab-prog 3s ease-in-out infinite alternate; }
+@keyframes lab-prog { from { opacity: .45; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .lab .prog i { animation: none; } }
 
 /* Map: run tabs and radio calls */
 .runtabs, .levels { display: flex; flex-wrap: wrap; gap: 2px; }

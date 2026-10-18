@@ -44,9 +44,9 @@ async function open(save) {
   page.on("pageerror", (e) => errors.push("page " + e.message));
   await page.addInitScript((r) => { if (!sessionStorage.seeded) { sessionStorage.seeded = "1"; localStorage.setItem("out-of-office.save", r); } }, save);
   await page.goto("http://localhost:5221/");
-  await page.waitForSelector("[data-clockin], #desk .win");
+  await page.waitForSelector("[data-clockin], #desk .ic");
   if (await page.locator("[data-clockin]").count()) await page.click("[data-clockin]");
-  await page.waitForSelector("#desk .win");
+  await page.waitForSelector("#desk .ic");
   return page;
 }
 

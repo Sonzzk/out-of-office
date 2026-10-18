@@ -17,17 +17,17 @@ async function fresh(query, prep) {
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`http://localhost:5208/?seed=44&fast`);
-  await page.waitForSelector("#ob-name, #desk .win");
+  await page.waitForSelector("#ob-name, #desk .ic");
   if (await page.locator("#ob-name").count()) {
     await page.fill("#ob-name", "Amos");
     await page.click("[data-sign]");
   }
-  await page.waitForSelector("#desk .win");
+  await page.waitForSelector("#desk .ic");
   await page.evaluate(prep);
   await page.goto(`http://localhost:5208/?fast&${query}`);
-  await page.waitForSelector("[data-clockin], #desk .win");
+  await page.waitForSelector("[data-clockin], #desk .ic");
   if (await page.locator("[data-clockin]").count()) await page.click("[data-clockin]");
-  await page.waitForSelector("#desk .win");
+  await page.waitForSelector("#desk .ic");
   return page;
 }
 

@@ -13,12 +13,12 @@ const page = await browser.newPage({ viewport: { width: 1400, height: 800 } });
 page.on("pageerror", (e) => errors.push(e.message));
 page.on("response", (r) => r.status() === 404 && !r.url().includes("favicon") && errors.push("404 " + r.url()));
 await page.goto("http://localhost:5217/?seed=7");
-await page.waitForSelector("#ob-name, #desk .win");
+await page.waitForSelector("#ob-name, #desk .ic");
 if (await page.locator("#ob-name").count()) {
   await page.fill("#ob-name", "Amos");
   await page.click("[data-sign]");
 }
-await page.waitForSelector("#desk .win");
+await page.waitForSelector("#desk .ic");
 await page.click('[data-open="hr"]');
 for (let i = 0; i < 2; i++) await page.locator("[data-hire]:not([disabled])").first().click();
 await page.click('[data-open="map"]');

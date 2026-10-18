@@ -13,12 +13,12 @@ const errors = [];
 const page = await browser.newPage({ viewport: { width: 1366, height: 860 } });
 page.on("pageerror", (e) => errors.push(e.message));
 await page.goto(`http://localhost:5207/?seed=33&fast`);
-await page.waitForSelector("#ob-name, #desk .win");
+await page.waitForSelector("#ob-name, #desk .ic");
 if (await page.locator("#ob-name").count()) {
   await page.fill("#ob-name", "Amos");
   await page.click("[data-sign]");
 }
-await page.waitForSelector("#desk .win");
+await page.waitForSelector("#desk .ic");
 await page.click('[data-open="hr"]');
 for (let i = 0; i < 3; i++) await page.locator("[data-hire]:not([disabled])").first().click();
 await page.evaluate(() => {
@@ -29,9 +29,9 @@ await page.evaluate(() => {
   localStorage.setItem("out-of-office.save", JSON.stringify(s));
 });
 await page.goto(`http://localhost:5207/?fast&stage=4&unease=0.9`);
-await page.waitForSelector("[data-clockin], #desk .win");
+await page.waitForSelector("[data-clockin], #desk .ic");
 if (await page.locator("[data-clockin]").count()) await page.click("[data-clockin]");
-await page.waitForSelector("#desk .win");
+await page.waitForSelector("#desk .ic");
 
 await page.click('[data-open="hr"]');
 const off = await page.locator(".warpline").count();

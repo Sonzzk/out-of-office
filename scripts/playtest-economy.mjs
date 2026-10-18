@@ -14,12 +14,12 @@ const fail = (m) => { errors.push(m); console.log("FAIL", m); };
 const page = await browser.newPage({ viewport: { width: 1366, height: 860 } });
 page.on("pageerror", (e) => errors.push(e.message));
 await page.goto(`http://localhost:5218/?seed=21&fast`);
-await page.waitForSelector("#ob-name, #desk .win");
+await page.waitForSelector("#ob-name, #desk .ic");
 if (await page.locator("#ob-name").count()) {
   await page.fill("#ob-name", "Amos");
   await page.click("[data-sign]");
 }
-await page.waitForSelector("#desk .win");
+await page.waitForSelector("#desk .ic");
 await page.click('[data-open="hr"]');
 for (let i = 0; i < 2; i++) await page.locator("[data-hire]:not([disabled])").first().click();
 await page.click('[data-open="map"]');
@@ -56,9 +56,9 @@ await page.evaluate(() => {
   localStorage.setItem("out-of-office.save", JSON.stringify(s));
 });
 await page.goto(`http://localhost:5218/?fast`);
-await page.waitForSelector("[data-clockin], #desk .win");
+await page.waitForSelector("[data-clockin], #desk .ic");
 if (await page.locator("[data-clockin]").count()) await page.click("[data-clockin]");
-await page.waitForSelector("#desk .win");
+await page.waitForSelector("#desk .ic");
 await page.click('[data-open="hr"]');
 const hr = page.locator('.win[data-app="hr"]');
 if (!(await hr.locator("[data-train]:not([disabled])").count())) fail("no training button");

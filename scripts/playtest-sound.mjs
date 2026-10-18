@@ -17,12 +17,12 @@ const page = await browser.newPage({ viewport: { width: 1366, height: 860 } });
 page.on("pageerror", (e) => errors.push(e.message));
 page.on("response", (r) => r.status() === 404 && !r.url().endsWith("favicon.ico") && errors.push("404 " + r.url()));
 await page.goto(`http://localhost:5206/?seed=21&fast&unease=0.9`);
-await page.waitForSelector("#ob-name, #desk .win");
+await page.waitForSelector("#ob-name, #desk .ic");
 if (await page.locator("#ob-name").count()) {
   await page.type("#ob-name", "Amos");
   await page.click("[data-sign]");
 }
-await page.waitForSelector("#desk .win");
+await page.waitForSelector("#desk .ic");
 await page.waitForTimeout(3500); // let several muzak bars schedule
 
 const calm = page.locator("[data-calm]");

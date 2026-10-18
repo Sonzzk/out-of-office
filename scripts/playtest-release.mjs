@@ -19,7 +19,7 @@ for (const [label, text, expect] of [
   await page.goto("http://localhost:5212/?fast");
   await page.evaluate((t) => localStorage.setItem("out-of-office.save", t), text);
   await page.goto("http://localhost:5212/?fast");
-  await page.waitForSelector("#ob-name, #desk .win");
+  await page.waitForSelector("#ob-name, #desk .ic");
   if (await page.locator("#ob-name").count()) {
     await page.fill("#ob-name", "Amos");
     await page.click("[data-sign]");

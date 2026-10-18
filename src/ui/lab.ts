@@ -18,9 +18,16 @@ export function renderLab(body: HTMLElement): void {
     const bench = Array.from({ length: benches(s) }, (_, i) => {
       const r = s.research[i];
       return r
-        ? `<div class="bench inset"><img src="${art.item(ITEMS[r.itemId].art)}" alt="">
-            <span><b>On the bench:</b> ${esc(ITEMS[r.itemId].name)}<br><span class="dim">Results when you close the books tonight.</span></span></div>`
-        : `<div class="bench inset dim">This bench is empty. Crews sometimes bring back samples from things they survived.</div>`;
+        ? (() => {
+            const ent = ITEMS[r.itemId].sampleOf!;
+            const st = stageOf(s, ent);
+            const next = indexEntry(ent);
+            const gain = st + 1 >= 3 && next.mastered ? `Mastered gives: ${next.mastered}` : `Next stage: ${STAGE_NAME[Math.min(3, st + 1)]}.`;
+            return `<div class="bench inset"><span class="jar full"><img src="${art.item(ITEMS[r.itemId].art)}" alt=""></span>
+            <span><b>On the bench:</b> ${esc(ITEMS[r.itemId].name)}<br><span class="dim">${esc(gain)}</span>
+            <span class="prog"><i></i></span><span class="dim">Results when you close the books tonight.</span></span></div>`;
+          })()
+        : `<div class="bench inset dim"><span class="jar"></span><span>Bench ${i + 1} is empty.<br>Crews sometimes bring back samples from things they survived. Smilers, Hounds and Facelings are the ones worth keeping: studying them makes every crew safer.</span></div>`;
     }).join("");
     body.innerHTML = `${bench}
       <h3>Samples in storage</h3>
