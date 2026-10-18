@@ -160,7 +160,7 @@ export function startExpedition(
 
 function reveal(state: GameState, lv: Level, levelId: string, p: Pt, radius?: number): void {
   const fog = state.fog[levelId];
-  const lit = state.outageDay === state.day ? 2 : VISION; // power cut: less light everywhere
+  const lit = levelDef(levelId).vision ?? (state.outageDay === state.day ? 2 : VISION); // power cut or tall wheat: less seen
   const r = radius ?? (lv.cells[idx(lv, p)] === DARK ? 1 : lit);
   for (let y = p.y - r; y <= p.y + r; y++)
     for (let x = p.x - r; x <= p.x + r; x++)
@@ -194,7 +194,9 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
   // Once Level 0 is mastered, everyone knows the way.
   const mapBonus = isMastered(state, exp.levelId) ? 1 : 0;
   const rope = exp.gear.includes("rope") ? 0.5 : 1;
-  const stalled = dice.chance(Math.max(0, 0.16 - (avgNav + mapBonus) * 0.03) * rope);
+  const wheat = levelDef(exp.levelId).rule === "wheat" && exp.phase === "return"; // the way home is never where you left it
+  const lost = wheat ? Math.max(0.05, 0.3 - avgNav * 0.05) * rope : 0;
+  const stalled = dice.chance(Math.max(0, 0.16 - (avgNav + mapBonus) * 0.03) * rope) || dice.chance(lost);
 
   // Spot loot nearby on the way in and detour for it.
   if (exp.phase === "in") {
@@ -566,7 +568,9 @@ const callDef = (id: string): CallDef => CALLS.find((c) => c.id === id)!;
 
 function maybeCall(state: GameState, exp: Expedition, dice: Dice, crew: Worker[]): void {
   if (exp.call || exp.callsMade || exp.phase !== "in" || exp.tick < 8 || !dice.chance(0.12)) return;
-  const options = CALLS.filter((c) => (c.needs === "pair" ? crew.length >= 2 : c.needs === "loot" ? exp.carried.length > 0 : true));
+  const options = CALLS.filter(
+    (c) => (!c.only || c.only === exp.levelId) && (c.needs === "pair" ? crew.length >= 2 : c.needs === "loot" ? exp.carried.length > 0 : true),
+  );
   const def = dice.pick(options);
   const caller = dice.pick(crew);
   const other = crew.length > 1 ? dice.pick(crew.filter((w) => w !== caller)) : caller;
@@ -635,6 +639,16 @@ function resolveCall(state: GameState, exp: Expedition, choice: number, dice: Di
     state.ledger.unshift({ day: state.day, text: "Vending machine, Level 0", amount: -VENDING_PRICE });
     exp.carried.push(item);
     line("buy", { item: ITEMS[item].name });
+  } else if (call.id === "farmhouse") {
+    if (choice === 1) return void line("pass");
+    if (dice.chance(0.6)) {
+      const item = dice.pick(["level-key", "deuclidator", "ghost-light", "memory-jar"]);
+      exp.carried.push(item);
+      line("good", { item: ITEMS[item].name });
+    } else {
+      addInfection(state, 6);
+      line("wrong");
+    }
   } else if (call.id === "rival") {
     if (choice === 1 || !exp.carried.length) return void line("refuse");
     const item = exp.carried.shift()!;

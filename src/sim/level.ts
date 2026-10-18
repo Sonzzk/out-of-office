@@ -39,9 +39,15 @@ export function generateLevel(seed: number, def: LevelDef = LEVELS[0], w = 30, h
   const set = (x: number, y: number, v: number) => {
     if (x > 0 && y > 0 && x < w - 1 && y < h - 1) cells[y * w + x] = v;
   };
-  CARVE[def.style](dice, set, w, h, entrance);
-  set(entrance.x, entrance.y, FLOOR);
-  if (def.style !== "halls") prune(cells, w, h, entrance);
+  // Caves can close in on the door, so carve again until there's room to work.
+  for (let attempt = 0; attempt < (def.style === "caves" ? 12 : 1); attempt++) {
+    cells.fill(WALL);
+    CARVE[def.style](dice, set, w, h, entrance);
+    set(entrance.x, entrance.y, FLOOR);
+    if (def.style !== "halls") prune(cells, w, h, entrance);
+    if (cells.filter((c) => c !== WALL).length >= 160) break;
+  }
+  if (def.dark) for (let i = 0; i < cells.length; i++) if (cells[i] === FLOOR) cells[i] = DARK;
 
   const floor: Pt[] = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (cells[y * w + x] !== WALL) floor.push({ x, y });
@@ -147,6 +153,67 @@ const CARVE: Record<LevelDef["style"], Carver> = {
       const horizontal = dice.chance(0.5);
       for (let k = 0; k < 3; k++) set(horizontal ? x + k : x, horizontal ? y : y + k, WALL);
     }
+  },
+  // Flooded floor: open carpet with islands of dry floor and the odd long partition.
+  flooded(dice, set, w, h) {
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) set(x, y, FLOOR);
+    for (let i = 0; i < 26; i++) {
+      const x = dice.range(3, w - 4);
+      const y = dice.range(2, h - 3);
+      for (let dx = 0; dx < 2; dx++) for (let dy = 0; dy < 2; dy++) set(x + dx, y + dy, WALL);
+    }
+    for (let i = 0; i < 4; i++) {
+      const x = dice.range(4, w - 8);
+      const y = dice.range(3, h - 4);
+      for (let k = 0; k < dice.range(5, 9); k++) set(x + k, y, WALL);
+    }
+  },
+  // Caves: random rock smoothed into winding chambers.
+  caves(dice, set, w, h, entrance) {
+    let rock = Array.from({ length: w * h }, (_, i) => {
+      const x = i % w;
+      const y = Math.floor(i / w);
+      return x === 0 || y === 0 || x === w - 1 || y === h - 1 || dice.chance(0.45);
+    });
+    for (let pass = 0; pass < 4; pass++) {
+      rock = rock.map((_, i) => {
+        const x = i % w;
+        const y = Math.floor(i / w);
+        let n = 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (rock[(y + dy) * w + x + dx] ?? true) n++;
+        return n >= 5;
+      });
+    }
+    rock.forEach((r, i) => {
+      if (!r) set(i % w, Math.floor(i / w), FLOOR);
+    });
+    // Make sure the way in is open.
+    for (let x = entrance.x; x < entrance.x + 4; x++) set(x, entrance.y, FLOOR);
+  },
+  // Suburbs: a grid of streets around blocks of houses, each with a door and a room.
+  streets(dice, set, w, h, entrance) {
+    const rows = [entrance.y - 6, entrance.y, entrance.y + 6];
+    for (const y of rows) for (let x = 1; x < w - 1; x++) set(x, y, FLOOR);
+    for (let x = 1; x < w - 1; x += 6) for (let y = 1; y < h - 1; y++) set(x, y, FLOOR);
+    for (let x = 1; x < w - 6; x += 6)
+      for (const y of rows.slice(0, 2)) {
+        // A house in each block, door onto the street above it.
+        if (dice.chance(0.85)) {
+          set(x + 3, y + 1, FLOOR);
+          for (let dx = 2; dx <= 4; dx++) for (let dy = 2; dy <= 4; dy++) set(x + dx, y + dy, FLOOR);
+        }
+      }
+  },
+  // Wheat field: wide open ground broken up by thick stands of wheat.
+  field(dice, set, w, h, entrance) {
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) set(x, y, FLOOR);
+    for (let i = 0; i < 18; i++) {
+      const cx = dice.range(5, w - 3);
+      const cy = dice.range(2, h - 2);
+      const r = dice.range(1, 2);
+      for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) if (dice.chance(0.8)) set(x, y, WALL);
+    }
+    for (let x = entrance.x; x < entrance.x + 4; x++) set(x, entrance.y, FLOOR);
   },
   // Hotel: a main corridor with side corridors lined by small rooms.
   hotel(dice, set, w, h, entrance) {
