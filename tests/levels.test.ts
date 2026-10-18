@@ -55,7 +55,7 @@ describe("levels", () => {
     const exp = startExpedition(s, crew.map((w) => w.id), { x: 28, y: 2 }, undefined, "level-5")!;
     for (const r of exp.entities) r.cooldown = 999; // nothing else interferes
     exp.tick = CHECKOUT_TICK - 1;
-    exp.callsMade = 1;
+    exp.callsMade = 99;
     stepExpedition(s, exp);
     expect(exp.log.some((l) => l.includes("has been checked in"))).toBe(true);
     expect(crew.filter((w) => w.status === "dead")).toHaveLength(1);

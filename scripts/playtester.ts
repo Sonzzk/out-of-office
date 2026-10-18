@@ -7,7 +7,7 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { hire, type Worker } from "../src/sim/crew";
 import { endDay, sell } from "../src/sim/economy";
-import { startExpedition, stepExpedition, levelOf, running, answerCall, type Expedition } from "../src/sim/expedition";
+import { startExpedition, stepExpedition, levelOf, running, answerCall, answerThreat, type Expedition } from "../src/sim/expedition";
 import { upgradeDef } from "../src/data/upgrades";
 import { buyUpgrade, canUpgrade, crewSlots } from "../src/sim/facilities";
 import { LEVELS } from "../src/data/levels";
@@ -39,6 +39,7 @@ function runOnce(s: GameState, exp: Expedition, names: string[], dice: Dice): Ru
   lines.push(...exp.log.map(norm));
   let tick = 0;
   let callAsked = -1;
+  let threatAsked = -1;
   let last = { enc: exp.encounters, carried: exp.carried.length, phase: exp.phase as string, dead: s.crew.filter((w) => w.status === "dead").length };
   while (exp.phase !== "done" && tick < 3000) {
     // A casual player answers a call after a few seconds, not instantly.
@@ -47,6 +48,13 @@ function runOnce(s: GameState, exp: Expedition, names: string[], dice: Dice): Ru
       beats.push({ t: tick * TICK_S, kind: "decision", note: "answer call" });
       answerCall(s, exp, 0);
       callAsked = -1;
+    }
+    // A threat gets an answer too, a little quicker than a question: hide.
+    if (exp.threat && threatAsked < 0) threatAsked = tick;
+    if (exp.threat && tick - threatAsked >= Math.round(2 / TICK_S)) {
+      beats.push({ t: tick * TICK_S, kind: "decision", note: "answer threat" });
+      answerThreat(s, exp, 0);
+      threatAsked = -1;
     }
     const hadCall = !!exp.call;
     stepExpedition(s, exp);

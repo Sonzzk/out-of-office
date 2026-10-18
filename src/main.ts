@@ -26,9 +26,11 @@ setUnease(forcedUnease ?? uneaseFor(state));
 setStage(forcedStage ?? infectionStage(state));
 
 const desk = document.getElementById("desk")!;
+let ready = false; // runs only advance once the desktop is up and the store has the game
 void boot(document.body, state, params.has("fast")).then(() => {
   saveGame(state);
   initStore(state);
+  ready = true;
   mountDesktop(desk, state);
   if (loadProblem) {
     void dialog(
@@ -56,6 +58,7 @@ document.addEventListener("visibilitychange", () => {
 // play-tests.
 const TICK_MS = params.has("fast") ? 40 : 550;
 setInterval(() => {
+  if (!ready) return;
   const running = state.expeditions.filter((e) => e.phase !== "done");
   if (!running.length) return;
   updateTick((s) => running.forEach((e) => stepExpedition(s, e)));

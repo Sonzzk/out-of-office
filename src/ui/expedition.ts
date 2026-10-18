@@ -1,6 +1,6 @@
 import { ITEMS } from "../data/items";
 import { isVeteran } from "../sim/crew";
-import { CALLS } from "../data/calls";
+import { CALLS, THREAT_OPTIONS, THREAT_TICKS } from "../data/calls";
 import { scrub } from "../privacy";
 import { radioStatic, sfx } from "./audio";
 import { entityDef } from "../data/entities";
@@ -10,7 +10,7 @@ import { indexEntry } from "../data/index";
 import { sellPrice, wage } from "../sim/economy";
 import { crewSlots } from "../sim/facilities";
 import { surveyed, isUnlocked } from "../sim/research";
-import { answerCall, callTicks, levelOf, MAX_CREW, MAX_PINS, oddsWord, running, startExpedition, suggestLead, type Expedition } from "../sim/expedition";
+import { answerCall, answerThreat, callTicks, canDistract, canGiveSomeone, levelOf, orderExpedition, orderReady, type Order, MAX_CREW, MAX_PINS, oddsWord, running, startExpedition, suggestLead, type Expedition } from "../sim/expedition";
 import { infectionStage } from "../sim/infection";
 import { DARK, FLOOR, idx, type Pt } from "../sim/level";
 import { makeRng } from "../sim/rng";
@@ -112,6 +112,18 @@ export function renderExpedition(body: HTMLElement): void {
       selected = planning ? null : Number(tab.dataset.run);
       renderSide();
       draw();
+      return;
+    }
+    const threat = t.closest<HTMLElement>("[data-threat]");
+    if (threat) {
+      const exp = current();
+      if (exp) update((s) => void answerThreat(s, exp, Number(threat.dataset.threat)));
+      return;
+    }
+    const order = t.closest<HTMLElement>("[data-order]");
+    if (order) {
+      const exp = current();
+      if (exp) update((s) => void orderExpedition(s, exp, order.dataset.order as Order));
       return;
     }
     const answer = t.closest<HTMLElement>("[data-answer]");
@@ -267,32 +279,75 @@ export function renderExpedition(body: HTMLElement): void {
           ${profitLine(exp)}</div>
           <button class="btn go" data-dismiss>Plan the next run</button>`
         : "";
-    side.innerHTML = `${tabs()}<canvas class="bodycam"></canvas><div class="callbox"></div>${head}<div class="radio inset" aria-live="polite"></div>${debrief}`;
+    side.innerHTML = `${tabs()}<canvas class="bodycam"></canvas><div class="callbox"></div><div class="orders"></div>${head}<div class="radio inset" aria-live="polite"></div>${debrief}`;
     logCount = 0;
     cam = createBodycam(side.querySelector<HTMLCanvasElement>("canvas.bodycam")!, camInput(exp));
     appendLog(exp);
     renderCall(exp);
   }
 
-  // A question from the crew, with the time left before the lead decides.
+  // A question from the crew, or a thing closing in, with the time left to answer.
   function renderCall(exp: Expedition): void {
     const box = side.querySelector<HTMLElement>(".callbox");
     if (!box) return;
-    if (!exp.call) {
+    const key = exp.threat ? `threat:${exp.threat.id}:${exp.threat.asked}` : exp.call ? `call:${exp.call.id}:${exp.call.asked}` : "";
+    if (!key) {
+      if (box.dataset.key) radioStatic(false);
+      box.dataset.key = "";
       box.innerHTML = "";
-      radioStatic(false);
+      renderOrders(exp);
       return;
     }
-    const def = CALLS.find((c) => c.id === exp.call!.id)!;
-    const left = Math.max(0, callTicks(exp) - (exp.tick - exp.call.asked));
-    const pct = Math.round((100 * left) / callTicks(exp));
-    if (!box.querySelector(".call")) {
+    if (box.dataset.key !== key) {
+      box.dataset.key = key;
       radioStatic(true);
-      box.innerHTML = `<div class="call inset"><b>The crew is waiting for your call</b>
-        <div class="opts">${def.options.map((o, i) => `<button class="btn ${i === 0 ? "go" : ""}" data-answer="${i}">${esc(o)}</button>`).join("")}</div>
-        <div class="timer"><i></i></div><span class="dim">If you don't answer, the team lead decides (${esc(def.options[def.fallback])}).</span></div>`;
+      if (exp.threat) {
+        const s = game();
+        const off = [false, false, !canDistract(exp), !canGiveSomeone(s, exp)];
+        box.innerHTML = `<div class="call threat inset"><b>${esc(entityDef(exp.threat.id).name)} is close. Say something.</b>
+          <div class="opts">${THREAT_OPTIONS.map((o, i) => `<button class="btn ${i === 0 ? "go" : ""}" data-threat="${i}" title="${esc(THREAT_TIPS[i])}" ${off[i] ? "disabled" : ""}>${esc(o)}</button>`).join("")}</div>
+          <div class="timer"><i></i></div></div>`;
+      } else {
+        const def = CALLS.find((c) => c.id === exp.call!.id)!;
+        box.innerHTML = `<div class="call inset"><b>The crew is waiting for your call</b>
+          <div class="opts">${def.options.map((o, i) => `<button class="btn ${i === 0 ? "go" : ""}" data-answer="${i}">${esc(o)}</button>`).join("")}</div>
+          <div class="timer"><i></i></div><span class="dim">If you don't answer, the team lead decides (${esc(def.options[def.fallback])}).</span></div>`;
+      }
     }
-    box.querySelector<HTMLElement>(".timer i")!.style.width = `${pct}%`;
+    const total = exp.threat ? THREAT_TICKS : callTicks(exp);
+    const left = Math.max(0, total - (exp.tick - (exp.threat ? exp.threat.asked : exp.call!.asked)));
+    box.querySelector<HTMLElement>(".timer i")!.style.width = `${Math.round((100 * left) / total)}%`;
+    renderOrders(exp);
+  }
+
+  // Standing orders: act any time between questions.
+  const THREAT_TIPS = [
+    "It will probably miss you, but the crew freezes for a few seconds.",
+    "Depends on the crew's sense of direction. If it fails, it is worse.",
+    "Costs the cheapest thing you carry. It leaves for a while.",
+    "One of the crew is lost for good. It leaves. They will remember.",
+  ];
+  const ORDERS: { id: Order; label: string; tip: string }[] = [
+    { id: "hold", label: "Hold", tip: "Freeze for a few seconds. Hard to notice, but not moving." },
+    { id: "push", label: "Push on", tip: "Move twice as fast for a while. Louder." },
+    { id: "back", label: "Turn back", tip: "Head home now with what you have." },
+    { id: "distract", label: "Throw loot", tip: "Spend the cheapest thing carried to send the nearest threat away." },
+  ];
+  function renderOrders(exp: Expedition): void {
+    const row = side.querySelector<HTMLElement>(".orders");
+    if (!row) return;
+    if (exp.phase === "done") {
+      row.innerHTML = "";
+      return;
+    }
+    if (!row.firstChild)
+      row.innerHTML = `<span class="dim">Orders</span>${ORDERS.map((o) => `<button class="btn" data-order="${o.id}" title="${esc(o.tip)}">${o.label}</button>`).join("")}`;
+    for (const b of Array.from(row.querySelectorAll<HTMLButtonElement>("[data-order]"))) {
+      const id = b.dataset.order as Order;
+      const wait = (exp.orderAt?.[id] ?? 0) - exp.tick;
+      b.disabled = !orderReady(exp, id);
+      b.classList.toggle("cool", wait > 0);
+    }
   }
 
   function appendLog(exp: Expedition): void {

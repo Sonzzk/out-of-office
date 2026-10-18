@@ -99,6 +99,7 @@ describe("facilities", () => {
     buyUpgrade(s, "breakroom");
     const exp = startExpedition(s, [w.id], { x: 25, y: 5 })!;
     expect(skill(w, "morale")).toBeGreaterThanOrEqual(3);
+    exp.entities = []; // this is about Morale, not about surviving
     while (exp.phase !== "done") stepExpedition(s, exp);
     expect(w.boost).toBeUndefined();
   });
