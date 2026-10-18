@@ -10,7 +10,7 @@
     "test": "vitest run",
     "shot": "node scripts/shot.mjs",
     "balance": "vite-node scripts/balance.ts 100 90",
-    "playtest": "node scripts/playtest-loop.mjs && node scripts/playtest-two.mjs && node scripts/playtest-infection.mjs && node scripts/playtest-levels.mjs && node scripts/playtest-roster.mjs && node scripts/playtest-facilities.mjs && node scripts/playtest-events.mjs && node scripts/playtest-deep.mjs && node scripts/playtest-sound.mjs && node scripts/playtest-horror.mjs && node scripts/playtest-fourthwall.mjs",
+    "playtest": "node scripts/playtest-loop.mjs && node scripts/playtest-two.mjs && node scripts/playtest-infection.mjs && node scripts/playtest-levels.mjs && node scripts/playtest-roster.mjs && node scripts/playtest-facilities.mjs && node scripts/playtest-events.mjs && node scripts/playtest-deep.mjs && node scripts/playtest-sound.mjs && node scripts/playtest-horror.mjs && node scripts/playtest-fourthwall.mjs && node scripts/playtest-tutorial.mjs",
     "artifact": "node scripts/artifact.mjs"
   },
   "devDependencies": {

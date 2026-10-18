@@ -6,6 +6,7 @@ import { refreshCalm } from "./uncanny";
 import { shownName } from "../privacy";
 import { startFourthWall } from "./fourthwall";
 import { startGlitch } from "./glitch";
+import { startTutorial } from "./tutorial";
 import { notify, startUncanny } from "./uncanny";
 import { dialog, initWindows, onWindowsChanged, openApp, openWindows, toggle } from "./windows";
 
@@ -152,6 +153,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   startUncanny(desk, work);
   startGlitch(desk, () => shownName(game().bossName));
   startFourthWall(desk, game);
+  startTutorial(desk);
 
   // An event memo that needs an answer pops up once, wherever you are.
   const announced = new Set(state.memos.map((m) => m.id));
