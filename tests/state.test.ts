@@ -21,4 +21,8 @@ describe("new game", () => {
     expect(s.heat).toBe(0);
     expect(JSON.parse(JSON.stringify(s))).toEqual(s);
   });
+
+  it("asks for onboarding until a catchphrase is signed", () => {
+    expect(newGame(1).catchphrase).toBeUndefined();
+  });
 });
