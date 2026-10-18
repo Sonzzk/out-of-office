@@ -2,6 +2,7 @@ import { ITEMS } from "../data/items";
 import { SOURCE_INFO } from "../data/crew";
 import { EMPLOYEE_OF_THE_MONTH, PAYROLL, RESEARCH_DONE, TARGET_MET, TARGET_MISSED } from "../data/memos";
 import { generatePool, isVeteran, type Worker } from "./crew";
+import { upkeep } from "./facilities";
 import { nightInfection } from "./infection";
 import { nightShift } from "./office";
 import { finishResearch } from "./research";
@@ -37,7 +38,7 @@ export function endDay(state: GameState): boolean {
     addMemo(state, { from: EMPLOYEE_OF_THE_MONTH.from, subject: fill(EMPLOYEE_OF_THE_MONTH.subject, vars), body: fill(EMPLOYEE_OF_THE_MONTH.body, vars) });
   }
   const lab = finishResearch(state);
-  if (lab) addMemo(state, { ...RESEARCH_DONE, body: fill(RESEARCH_DONE.body, { note: lab }) });
+  if (lab.length) addMemo(state, { ...RESEARCH_DONE, body: fill(RESEARCH_DONE.body, { note: lab.join("\n\n") }) });
   nightShift(state);
   nightInfection(state);
   payroll(state);
@@ -57,6 +58,11 @@ export function wage(w: Worker): number {
 }
 
 function payroll(state: GameState): void {
+  const rent = upkeep(state);
+  if (rent) {
+    state.cash -= rent;
+    state.ledger.unshift({ day: state.day, text: "Facilities upkeep", amount: -rent });
+  }
   const staff = state.crew.filter((w) => w.status !== "dead");
   if (!staff.length) return;
   const total = staff.reduce((s, w) => s + wage(w), 0);

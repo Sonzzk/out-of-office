@@ -1,10 +1,11 @@
 import { indexEntry, STAGE_NAME } from "../data/index";
 import { ITEMS } from "../data/items";
+import { benches } from "../sim/facilities";
 import { canResearch, SAMPLES_TO_MASTER, startResearch, stageOf } from "../sim/research";
 import { game, update, watch } from "../store";
 import { art, esc, money } from "./dom";
 
-// One lab bench. Research a sample overnight, or sell it in the Ledger. Not both.
+// One sample per lab bench. Research it overnight, or sell it in the Ledger. Not both.
 export function renderLab(body: HTMLElement): void {
   body.classList.add("lab");
   body.addEventListener("click", (e) => {
@@ -14,10 +15,13 @@ export function renderLab(body: HTMLElement): void {
   watch(body, () => {
     const s = game();
     const samples = s.loot.filter((l) => ITEMS[l.itemId].sampleOf);
-    const bench = s.research
-      ? `<div class="bench inset"><img src="${art.item(ITEMS[s.research.itemId].art)}" alt="">
-          <span><b>On the bench:</b> ${esc(ITEMS[s.research.itemId].name)}<br><span class="dim">Results when you close the books tonight.</span></span></div>`
-      : `<div class="bench inset dim">The bench is empty. Crews sometimes bring back samples from things they survived.</div>`;
+    const bench = Array.from({ length: benches(s) }, (_, i) => {
+      const r = s.research[i];
+      return r
+        ? `<div class="bench inset"><img src="${art.item(ITEMS[r.itemId].art)}" alt="">
+            <span><b>On the bench:</b> ${esc(ITEMS[r.itemId].name)}<br><span class="dim">Results when you close the books tonight.</span></span></div>`
+        : `<div class="bench inset dim">This bench is empty. Crews sometimes bring back samples from things they survived.</div>`;
+    }).join("");
     body.innerHTML = `${bench}
       <h3>Samples in storage</h3>
       ${

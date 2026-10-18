@@ -73,7 +73,7 @@ export const TARGET_MISSED = {
 export const RESEARCH_DONE = {
   from: "Lab",
   subject: "Lab report: Day {day}",
-  body: "{note}\n\nThe sample has been disposed of. Please stop asking where.\n\n- Lab",
+  body: "{note}\n\nWhatever was in the jars has been disposed of. Please stop asking where.\n\n- Lab",
 };
 
 export const HEAT_WARNING = {

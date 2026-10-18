@@ -7,6 +7,7 @@ import { CHECKOUT_TICK, CHECKOUT_WARN, levelDef } from "../data/levels";
 import { PLAQUES, WIPE_MEMO } from "../data/memos";
 import * as RADIO from "../data/radio";
 import { gainXp, hasQuirk, quirkDef, revealQuirk, skill, type Worker } from "./crew";
+import { BASE_CREW_SLOTS, callWait, crewSlots, moraleBoost } from "./facilities";
 import { DARK, dist, findPath, generateLevel, idx, nearestOpen, neighbors, WALL, type Level, type Pt } from "./level";
 import { addHeat, addInfection, HEAT_PER_DEATH, HEAT_PER_WIPE } from "./office";
 import { broughtHome, checkSurvey, isMastered, isUnlocked, learn, stageOf } from "./research";
@@ -34,6 +35,7 @@ export interface Expedition {
   call?: { id: string; asked: number; m?: number }; // a question for the office, waiting for an answer
   gear: string[]; // bought for this run
   used: string[]; // gear already used up
+  wait?: number; // radio mast: how much longer calls wait
   warned?: boolean; // a Warning Kite has the crew's back for one encounter
   callsMade: number;
   result?: { survivors: number; dead: string[]; loot: string[]; notes: string[] };
@@ -93,7 +95,7 @@ export function oddsWord(state: GameState, crewIds: number[]): string {
 }
 
 export const MAX_CREW = 4;
-export const CREW_SLOTS = 2; // expeditions that can be out at once
+export const CREW_SLOTS = BASE_CREW_SLOTS; // expeditions out at once before upgrades
 
 export const running = (state: GameState) => state.expeditions.filter((e) => e.phase !== "done");
 
@@ -114,11 +116,14 @@ export function startExpedition(
     .map((id) => state.crew.find((w) => w.id === id))
     .filter((w): w is Worker => !!w && w.status === "idle")
     .slice(0, MAX_CREW);
-  if (!crew.length || running(state).length >= CREW_SLOTS || !isUnlocked(state, levelId)) return null;
+  if (!crew.length || running(state).length >= crewSlots(state) || !isUnlocked(state, levelId)) return null;
   const lv = levelOf(state, levelId);
   const waypoint = nearestOpen(lv, marker);
   const lead = crew.find((w) => w.id === leadId) ?? suggestLead(crew);
-  for (const w of crew) w.status = "out";
+  for (const w of crew) {
+    w.status = "out";
+    w.boost = moraleBoost(state) || undefined;
+  }
   const exp: Expedition = {
     id: state.nextId++,
     levelId,
@@ -138,6 +143,7 @@ export function startExpedition(
     callsMade: 0,
     gear: affordable(state, gear),
     used: [],
+    wait: callWait(state),
   };
   // Gear is paid for when the crew sets out.
   for (const id of exp.gear) {
@@ -517,6 +523,7 @@ function finish(state: GameState, exp: Expedition): void {
   }
   for (const w of alive) {
     w.status = "idle";
+    w.boost = undefined;
     w.runs++;
     notes.push(...gainXp(w, 1 + (loot.length ? 1 : 0) + Math.min(exp.encounters, 2), dice));
     // After three runs HR works out what the file left out.
@@ -549,7 +556,7 @@ function finish(state: GameState, exp: Expedition): void {
 
 // --- Radio calls -----------------------------------------------------------
 // A radio kit gives the office twice as long to answer.
-export const callTicks = (exp: Expedition) => CALL_TICKS * (exp.gear.includes("radio") ? 2 : 1);
+export const callTicks = (exp: Expedition) => Math.round(CALL_TICKS * (exp.gear.includes("radio") ? 2 : 1) * (exp.wait ?? 1));
 
 const callDef = (id: string): CallDef => CALLS.find((c) => c.id === id)!;
 

@@ -1,6 +1,7 @@
 import { INDEX, indexEntry, STAGE_NAME, type Stage } from "../data/index";
 import { ITEMS } from "../data/items";
 import { LEVELS } from "../data/levels";
+import { benches } from "./facilities";
 import { WALL, type Level } from "./level";
 import { addHeat, addInfection, HEAT_PER_DATA_SALE } from "./office";
 import type { GameState } from "./state";
@@ -73,30 +74,32 @@ export function broughtHome(state: GameState, itemId: string, by: string): strin
   return learn(state, itemId, k.count >= ITEMS_TO_DOCUMENT ? 2 : 1, by);
 }
 
-// --- Lab: one bench, one sample a day. Selling a sample means it can't be researched.
+// --- Lab: one sample per bench a day. Selling a sample means it can't be researched.
 export function canResearch(state: GameState, lootId: number): boolean {
   const item = state.loot.find((l) => l.id === lootId);
-  return !!item && !!ITEMS[item.itemId].sampleOf && !state.research && !isMastered(state, ITEMS[item.itemId].sampleOf!);
+  return !!item && !!ITEMS[item.itemId].sampleOf && state.research.length < benches(state) && !isMastered(state, ITEMS[item.itemId].sampleOf!);
 }
 
 export function startResearch(state: GameState, lootId: number): boolean {
   if (!canResearch(state, lootId)) return false;
   const item = state.loot.find((l) => l.id === lootId)!;
   state.loot = state.loot.filter((l) => l !== item);
-  state.research = { itemId: item.itemId, startedDay: state.day };
+  state.research.push({ itemId: item.itemId, startedDay: state.day });
   return true;
 }
 
 // Runs at the end of the day.
-export function finishResearch(state: GameState): string | null {
-  if (!state.research) return null;
-  const entity = ITEMS[state.research.itemId].sampleOf!;
-  state.research = undefined;
-  addInfection(state, 2); // whatever was in the jar is in the building now
-  const k = known(state, entity);
-  k.count++;
-  const stage: Stage = k.count >= SAMPLES_TO_MASTER ? 3 : k.count >= SAMPLES_TO_DOCUMENT ? 2 : 1;
-  return learn(state, entity, stage) ?? `The lab finished with the ${indexEntry(entity).name} sample. Nothing new.`;
+export function finishResearch(state: GameState): string[] {
+  const notes = state.research.map(({ itemId }) => {
+    const entity = ITEMS[itemId].sampleOf!;
+    addInfection(state, 2); // whatever was in the jar is in the building now
+    const k = known(state, entity);
+    k.count++;
+    const stage: Stage = k.count >= SAMPLES_TO_MASTER ? 3 : k.count >= SAMPLES_TO_DOCUMENT ? 2 : 1;
+    return learn(state, entity, stage) ?? `The lab finished with the ${indexEntry(entity).name} sample. Nothing new.`;
+  });
+  state.research = [];
+  return notes;
 }
 
 // Collectors pay for data once per stage reached.

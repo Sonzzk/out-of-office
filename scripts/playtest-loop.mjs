@@ -89,7 +89,7 @@ await page.screenshot({ path: "shots/loop-10-index-seen.png" });
 await page.click('[data-open="lab"]');
 const lab = page.locator('.win[data-app="lab"]');
 await lab.locator("[data-research]").first().click();
-console.log("lab:", (await lab.locator(".bench").textContent()).trim().replace(/\s+/g, " "));
+console.log("lab:", (await lab.locator(".bench").first().textContent()).trim().replace(/\s+/g, " "));
 await page.click('[data-open="ledger"]');
 await page.screenshot({ path: "shots/loop-11-lab-ledger.png" });
 
