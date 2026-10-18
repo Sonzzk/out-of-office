@@ -11,7 +11,8 @@ export interface Worker {
   skills: Record<Skill, number>; // 0..6
   quirks: string[]; // [visible, hidden]
   revealed: string[]; // quirks HR knows about
-  status: "idle" | "out" | "dead";
+  status: "idle" | "out" | "busy" | "dead";
+  assignment?: "contract" | "overtime"; // what a busy worker is doing today
   runs: number;
   xp: number;
   level: number;

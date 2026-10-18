@@ -50,9 +50,10 @@ export interface GameState {
   index: Record<string, IndexState>;
   research?: { itemId: string; startedDay: number }; // the lab's one bench
   target: { year: number; amount: number; deadline: number }; // the board's money target
+  heatWarned: boolean; // Legal has already sent the warning memo
 }
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 export const FIRST_TARGET = { year: 1, amount: 2500, deadline: 5 };
 
 // Bring older saves up to date instead of throwing them away.
@@ -78,6 +79,11 @@ export function migrate(save: any): GameState | null {
       delete e.entitySeen;
     }
     save.version = 4;
+  }
+  if (save?.version === 4) {
+    save.heatWarned = false;
+    for (const e of save.expeditions) e.callsMade ??= 0;
+    save.version = 5;
   }
   return save?.version === SAVE_VERSION ? (save as GameState) : null;
 }
@@ -129,6 +135,7 @@ export function newGame(seed: number, bossName = "Boss"): GameState {
     takenToday: [],
     index: { "level-0": { stage: 1, count: 0, dataSold: 0 } },
     target: { ...FIRST_TARGET },
+    heatWarned: false,
   };
   state.pool = generatePool(state);
   addMemo(state, WELCOME);

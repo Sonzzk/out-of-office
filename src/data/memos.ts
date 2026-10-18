@@ -75,3 +75,35 @@ export const RESEARCH_DONE = {
   subject: "Lab report: Day {day}",
   body: "{note}\n\nThe sample has been disposed of. Please stop asking where.\n\n- Lab",
 };
+
+export const HEAT_WARNING = {
+  from: "Legal",
+  subject: "People are asking questions",
+  body:
+    "Families of former employees have started calling. A man from the city came by to 'look at the hallway'.\n\n" +
+    "If this keeps up there will be an inspection, and inspections are expensive.\n\n" +
+    "Legal recommends a donation to the inspector's retirement fund (Ledger). Legal did not recommend that in writing.\n\n- Legal",
+};
+
+export const INSPECTION = {
+  from: "Legal",
+  subject: "Inspection: fined {fine}",
+  body:
+    "The inspector came. The inspector saw the door at the end of the hall. The inspector asked about the people who went through it.\n\n" +
+    "{company} has been fined {fine}. The inspector will be back if this happens again.\n\n- Legal",
+};
+
+export const CONTRACT_DONE = {
+  from: "Logistics",
+  subject: "Safe contract complete: {name}",
+  body: "{name} spent the day counting ceiling tiles on the lit edge of Level 0 for a client who does not want to be named.\n\nPaid: {pay}. Nothing tried to eat them. Boring, profitable.\n\n- Logistics",
+};
+
+export const OVERTIME_DONE = {
+  from: "HR",
+  subject: "Overtime report: {name}",
+  body:
+    "{name} completed an unpaid shift in the Overtime Room. The output was excellent: {pay} of work, billed to a client.\n\n" +
+    "{name} has not said anything since. They are sitting at their desk, facing the wall.\n\n" +
+    "The lights in the office flickered at 3:14 AM. Facilities says that is unrelated.\n\n- HR",
+};
