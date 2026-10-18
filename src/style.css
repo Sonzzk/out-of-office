@@ -1,0 +1,65 @@
+/* Palette and bevels come from concept-art/mockup-source-v2.html. */
+:root {
+  --hi: #efe9cc; --sh: #6d684f; --dark: #3a3620;
+  --beige: #cfc9ad; --paper: #e4dfc4; --ink: #1d1a0e; --dim: #5c573f;
+  --title: #4b4320; --title2: #2f2a12; --red: #a8321e;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #16140a; color: var(--ink);
+  font: 12px "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace; }
+img { image-rendering: pixelated; }
+
+#desk { position: absolute; inset: 0; overflow: hidden;
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.07) 0 2px, transparent 2px 46px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 1px, transparent 1px 7px),
+    linear-gradient(180deg, #c3b345, #a89a38 60%, #8f8230); }
+/* Fluorescent vignette and scanlines sit above everything but ignore the mouse. */
+#desk::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 9000;
+  background: radial-gradient(ellipse at 50% 40%, rgba(255,250,170,.10), transparent 45%, rgba(8,7,2,.55));
+  animation: flicker 7s infinite steps(1); }
+.scan { position: absolute; inset: 0; pointer-events: none; z-index: 9001; mix-blend-mode: multiply;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,.12) 0 1px, transparent 1px 3px); }
+@keyframes flicker { 0%, 100% { opacity: 1; } 41% { opacity: .82; } 42% { opacity: 1; } 77% { opacity: .9; } }
+
+.icons { position: absolute; left: 12px; top: 12px; bottom: 40px; display: flex; flex-direction: column;
+  flex-wrap: wrap; gap: 10px; align-content: flex-start; }
+.ic { width: 76px; padding: 4px 2px; text-align: center; color: #f3ecc0; text-shadow: 1px 1px 0 #000;
+  font-size: 11px; cursor: pointer; border: 1px dotted transparent; background: none; font-family: inherit; }
+.ic img { display: block; width: 40px; height: 40px; margin: 0 auto 4px; }
+.ic:focus-visible, .ic:hover { border-color: #f3ecc0; }
+
+.win { position: absolute; background: var(--beige); border: 2px solid;
+  border-color: var(--hi) var(--dark) var(--dark) var(--hi);
+  box-shadow: 3px 3px 0 rgba(0,0,0,.45), 0 0 40px rgba(0,0,0,.35); display: flex; flex-direction: column;
+  max-width: calc(100vw - 8px); }
+.tb { height: 22px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 3px 0 6px;
+  background: linear-gradient(90deg, #6b6650, #8a8468); color: #d8d2b4; font-weight: bold; font-size: 11px;
+  letter-spacing: .04em; white-space: nowrap; cursor: grab; user-select: none; touch-action: none; }
+.win.active .tb { background: linear-gradient(90deg, var(--title2), var(--title)); color: #e9e2b0; }
+.tb span { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.tb button { width: 18px; height: 16px; font-weight: bold; font-size: 10px; font-family: inherit; background: var(--beige); color: var(--ink);
+  border: 2px solid; border-color: var(--hi) var(--sh) var(--sh) var(--hi); cursor: pointer; }
+.body { padding: 8px; overflow: auto; flex: 1; }
+.inset { border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); background: var(--paper); }
+.btn { padding: 4px 12px; background: var(--beige); border: 2px solid; font-weight: bold; font-size: 11px; font-family: inherit;
+  border-color: var(--hi) var(--dark) var(--dark) var(--hi); cursor: pointer; }
+.btn:active { border-color: var(--dark) var(--hi) var(--hi) var(--dark); }
+.dim { color: var(--dim); }
+
+.taskbar { position: absolute; left: 0; right: 0; bottom: 0; height: 32px; z-index: 8000; display: flex;
+  align-items: center; gap: 6px; padding: 3px 4px; background: var(--beige); border-top: 2px solid var(--hi); }
+.taskbar .start { font-weight: bold; }
+.taskbar .tasks { flex: 1; display: flex; gap: 4px; overflow: hidden; }
+.taskbar .tasks .btn { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.taskbar .tasks .btn.on { border-color: var(--dark) var(--hi) var(--hi) var(--dark); background: var(--paper); }
+.tray { display: flex; gap: 10px; align-items: center; padding: 3px 8px; height: 100%; font-size: 11px; }
+.tray img { width: 16px; height: 16px; vertical-align: -4px; margin-right: 3px; }
+
+.memo { padding: 12px; line-height: 1.5; white-space: pre-wrap; }
+canvas.map { display: block; width: 100%; height: 100%; background: #0e1208; }
+
+@media (max-width: 640px) {
+  .tray .hide-sm { display: none; }
+  .ic { width: 64px; }
+}

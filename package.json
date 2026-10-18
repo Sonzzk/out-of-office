@@ -1,0 +1,19 @@
+{
+  "name": "out-of-office",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "shot": "node scripts/shot.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.64.1",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.4",
+    "vitest": "^3.2.7"
+  }
+}
