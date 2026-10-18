@@ -1,7 +1,7 @@
 // Levels the company can send crews to. Generator style, loot and entities are
 // data so new levels are mostly writing. Adapted from the Backrooms Wiki
 // (CC BY-SA) in our own words.
-export type LevelStyle = "halls" | "aisles" | "pipes" | "machines" | "openplan" | "hotel";
+export type LevelStyle = "halls" | "aisles" | "pipes" | "machines" | "openplan" | "hotel" | "flooded" | "caves" | "streets" | "field";
 
 export interface LevelDef {
   id: string; // also the Index id
@@ -14,7 +14,9 @@ export interface LevelDef {
   lootCount: number;
   darkBlobs: number;
   blurb: string; // one line for the planning panel
-  rule?: "hotel"; // anchor levels bend the usual rules
+  rule?: "hotel" | "wheat"; // anchor levels bend the usual rules
+  dark?: boolean; // no working lights anywhere
+  vision?: number; // how far a crew sees in the lit parts, when not the usual 3
 }
 
 export const LEVELS: LevelDef[] = [
@@ -60,6 +62,41 @@ export const LEVELS: LevelDef[] = [
     loot: [["ghost-light", 3], ["memory-jar", 3], ["liquid-silence", 3], ["deuclidator", 1], ["level-key", 2]],
     lootCount: 12, darkBlobs: 3,
     blurb: "Anchor level. Rearranges itself nightly, checkout is strict, and someone is throwing a party.",
+  },
+  {
+    id: "level-6", depth: 6, name: "Lights Out", art: "L06-lights-out.png", style: "halls", dark: true,
+    entities: ["smiler", "smiler", "hound", "chupavida", "deathmoth"],
+    loot: [["ghost-light", 3], ["memory-jar", 2], ["firesalt", 2], ["liquid-silence", 2], ["deuclidator", 1]],
+    lootCount: 10, darkBlobs: 0,
+    blurb: "No working lights at all. Crews see one step ahead; a flashlight makes it two. Smilers and a Chupavida love it.",
+  },
+  {
+    id: "level-7", depth: 7, name: "Flooded Floor", art: "L07-flooded-floor.png", style: "flooded",
+    entities: ["dunk", "dunk", "hound", "crawler", "death-rat"],
+    loot: [["almond-water", 3], ["moth-jelly", 3], ["memory-jar", 2], ["liquid-silence", 2], ["blue-armchair", 1]],
+    lootCount: 10, darkBlobs: 4,
+    blurb: "Knee-deep water over office carpet, with islands of dry floor. Dunks slip off with whatever you carry.",
+  },
+  {
+    id: "level-8", depth: 8, name: "Breakroom Caves", art: "L08-breakroom-caves.png", style: "caves",
+    entities: ["wretch", "wretch", "clump", "skin-stealer", "dollface", "hound"],
+    loot: [["blue-armchair", 2], ["dumb-gum", 3], ["candy", 3], ["deuclidator", 1], ["level-key", 1]],
+    lootCount: 10, darkBlobs: 4,
+    blurb: "Winding caves of vending machines and microwaves. Wretches wear the old staff badges.",
+  },
+  {
+    id: "level-9", depth: 9, name: "Night Suburbs", art: "L09-night-suburbs.png", style: "streets",
+    entities: ["humans", "anna", "wretch", "window", "partygoer", "chupavida"],
+    loot: [["ghost-light", 3], ["polaroid", 2], ["level-key", 2], ["memory-jar", 3], ["candy", 2]],
+    lootCount: 11, darkBlobs: 8,
+    blurb: "Quiet streets and lit windows. Every house has someone home, and some of them are people.",
+  },
+  {
+    id: "level-10", depth: 10, name: "Wheat Field", art: "L10-wheat-field.png", style: "field", rule: "wheat", vision: 2,
+    entities: ["humans", "mother", "anna", "warning-kite", "wretch"],
+    loot: [["level-key", 3], ["deuclidator", 2], ["memory-jar", 3], ["ghost-light", 3], ["liquid-silence", 2]],
+    lootCount: 14, darkBlobs: 0,
+    blurb: "Anchor level. Wheat to the horizon under a sun that never sets. It's easy to walk out and hard to walk back.",
   },
 ];
 
