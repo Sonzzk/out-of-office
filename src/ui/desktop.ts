@@ -5,6 +5,7 @@ import { apps } from "./apps";
 import { isCalm, isMuted, setCalm, setMuted, sfx } from "./audio";
 import { refreshCalm } from "./uncanny";
 import { has } from "../sim/projects";
+import { twistToday } from "../sim/twists";
 import { esc } from "./dom";
 import { shownName } from "../privacy";
 import { startFourthWall } from "./fourthwall";
@@ -25,6 +26,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
       <div class="tray inset">
         <span class="hide-sm"><img src="./art/icons/U-cash.png" alt=""><b data-cash></b></span>
         <span class="hide-sm"><img src="./art/icons/U-heat.png" alt="">Heat <b data-heat></b></span>
+        <span class="hide-sm twist-tag" data-twist hidden></span>
         <span class="hide-sm" data-floor hidden><b>FL 2</b></span>
         <span class="hide-sm" data-air hidden><img src="./art/icons/U-infection.png" alt="">Air <b></b></span>
         <button class="hum" data-calm></button>
@@ -144,6 +146,13 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
     const air = desk.querySelector<HTMLElement>("[data-air]")!;
     air.hidden = state.infection < 20;
     air.querySelector("b")!.textContent = state.infection >= 60 ? "BAD" : `${100 - state.infection}%`;
+    const tw = desk.querySelector<HTMLElement>("[data-twist]")!;
+    const today = twistToday(state);
+    tw.hidden = !today;
+    if (today) {
+      tw.textContent = today.name;
+      tw.title = today.text;
+    }
     projects(desk, state);
     // Once in a long while the clock says 11:47 PM for a few seconds. It always does.
     if (frozen > 0) frozen--;

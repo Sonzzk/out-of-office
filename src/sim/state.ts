@@ -66,6 +66,9 @@ export interface GameState {
   recovered?: number[]; // dead crew whose belongings were recovered
   lastSeen?: number; // when the page was last open, for the away report
   goal?: import("./goals").Goal; // the Board's goal for today
+  twist?: { id: string; day: number }; // today's twist, see sim/twists.ts
+  twistLast?: string; // the last twist that ran, so it does not repeat
+  contracts?: import("./contracts").Contract[]; // open Board contracts
   recentLines?: string[]; // radio lines heard lately, so the crews do not repeat them
 }
 
