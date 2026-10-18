@@ -1,3 +1,4 @@
+import { fill } from "../sim/state";
 import { game, update, watch } from "../store";
 import { esc } from "./dom";
 
@@ -15,17 +16,18 @@ export function renderInbox(body: HTMLElement): void {
   });
   watch(body, () => {
     const s = game();
+    const vars = { company: s.company, boss: s.bossName };
     const current = s.memos.find((m) => m.id === openId) ?? s.memos[0];
     if (current && openId === null) current.read = true;
     body.innerHTML = `
       <div class="list inset">${s.memos
         .map(
           (m) => `<div class="msg ${m.read ? "" : "unread"} ${m === current ? "on" : ""}" data-memo="${m.id}">
-            <span>${esc(m.subject)}</span><span class="dim">${esc(m.from)} · D${m.day}</span></div>`,
+            <span>${esc(fill(m.subject, vars))}</span><span class="dim">${esc(m.from)} · D${m.day}</span></div>`,
         )
         .join("")}</div>
       <div class="memo inset">${
-        current ? `<b>FROM:</b> ${esc(current.from)}\n<b>TO:</b> ${esc(s.bossName)}\n<b>RE:</b> ${esc(current.subject)}\n\n${esc(current.body)}` : "No memos."
+        current ? `<b>FROM:</b> ${esc(current.from)}\n<b>TO:</b> ${esc(s.bossName)}\n<b>RE:</b> ${esc(fill(current.subject, vars))}\n\n${esc(fill(current.body, vars))}` : "No memos."
       }</div>`;
   });
 }

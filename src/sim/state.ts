@@ -62,7 +62,9 @@ export function fill(text: string, vars: Record<string, string | number>): strin
 }
 
 export function addMemo(state: GameState, memo: { from: string; subject: string; body: string }): void {
-  const vars = { company: state.company, boss: state.bossName, day: state.day };
+  // {company} and {boss} stay in the text and are filled when the memo is shown,
+  // because both can change during onboarding.
+  const vars = { day: state.day };
   state.memos.unshift({
     id: state.nextId++,
     from: memo.from,

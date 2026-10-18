@@ -13,7 +13,13 @@ const page = await browser.newPage({ viewport: { width: 1366, height: 860 } });
 page.on("pageerror", (e) => errors.push(e.message));
 const seed = process.env.SEED ?? "7";
 await page.goto(`http://localhost:5198/?seed=${seed}&fast`);
-await page.waitForSelector(".win");
+// Get past onboarding when the boot screen asks for it.
+await page.waitForSelector(".win, #ob-name, [data-clockin]");
+if (await page.locator("#ob-name").count()) {
+  await page.fill("#ob-name", "Amos");
+  await page.click("[data-sign]");
+}
+await page.waitForSelector("#desk .win");
 await page.screenshot({ path: "shots/loop-1-boot.png" });
 
 // Hire two applicants.
@@ -52,6 +58,8 @@ await page.screenshot({ path: "shots/loop-7-inbox.png" });
 
 // Reload: the save should bring everything back.
 await page.goto(`http://localhost:5198/?fast`);
+await page.waitForSelector("#desk .win, [data-clockin]");
+if (await page.locator("[data-clockin]").count()) await page.click("[data-clockin]");
 await page.click('[data-open="hr"]');
 console.log("crew after reload:", await page.locator(".hr .roster .row").count());
 
