@@ -136,9 +136,10 @@ export function renderExpedition(body: HTMLElement): void {
     if (!runs.length) return "";
     const exp = current();
     const label = (e: Expedition) => {
-      const lead = s.crew.find((w) => w.id === e.leadId)!;
+      // The lead may have left the payroll since (a sold contract), so fall back gracefully.
+      const lead = s.crew.find((w) => w.id === e.leadId) ?? s.crew.find((w) => e.crewIds.includes(w.id));
       const state = e.call ? `<b class="ring">CALL</b>` : e.phase === "done" ? "back" : "out";
-      return `L${levelDef(e.levelId).depth} ${esc(lead.name.split(" ")[0])}${e.crewIds.length > 1 ? ` +${e.crewIds.length - 1}` : ""} · ${state}`;
+      return `L${levelDef(e.levelId).depth} ${esc(lead?.name.split(" ")[0] ?? "Crew")}${e.crewIds.length > 1 ? ` +${e.crewIds.length - 1}` : ""} · ${state}`;
     };
     return `<div class="runtabs">${runs
       .map((e) => `<button class="tab ${exp?.id === e.id ? "on" : ""}" data-run="${e.id}">${label(e)}</button>`)
@@ -197,7 +198,7 @@ export function renderExpedition(body: HTMLElement): void {
   let logCount = 0;
   function renderRun(exp: Expedition): void {
     const s = game();
-    const crew = exp.crewIds.map((id) => s.crew.find((w) => w.id === id)!);
+    const crew = exp.crewIds.map((id) => s.crew.find((w) => w.id === id)).filter((w): w is NonNullable<typeof w> => !!w);
     const phase =
       exp.phase === "done"
         ? exp.result!.survivors
@@ -385,26 +386,36 @@ export function renderExpedition(body: HTMLElement): void {
   watch(
     body,
     (topic: Topic) => {
-      const exp = current();
-      // Ticks only append radio lines, unless a run just finished, a call came
-      // in, or the tab labels changed.
-      const shownTabs = side.querySelector(".runtabs")?.textContent ?? "";
-      const wantTabs = (() => {
-        const d = document.createElement("div");
-        d.innerHTML = tabs();
-        return d.textContent ?? "";
-      })();
-      const finished = exp?.phase === "done" && !side.querySelector(".debrief");
-      if (topic === "tick" && exp && side.querySelector(".radio") && !finished && shownTabs === wantTabs) {
-        appendLog(exp);
-        renderCall(exp);
-      } else if (topic === "tick" && !exp && shownTabs === wantTabs) {
-        // Planning: leave the form alone so checkboxes don't reset.
-      } else renderSide();
-      draw();
+      try {
+        paint(topic);
+      } catch (err) {
+        // Never leave the map window blank: say so, and offer the way out.
+        console.error(err);
+        side.innerHTML = `<p class="dim">The map could not be drawn for this run. Dismiss it to carry on.</p><button class="btn" data-dismiss>Dismiss run</button>`;
+      }
     },
     ["all", "tick"],
   );
+
+  function paint(topic: Topic): void {
+    const exp = current();
+    // Ticks only append radio lines, unless a run just finished, a call came
+    // in, or the tab labels changed.
+    const shownTabs = side.querySelector(".runtabs")?.textContent ?? "";
+    const wantTabs = (() => {
+      const d = document.createElement("div");
+      d.innerHTML = tabs();
+      return d.textContent ?? "";
+    })();
+    const finished = exp?.phase === "done" && !side.querySelector(".debrief");
+    if (topic === "tick" && exp && side.querySelector(".radio") && !finished && shownTabs === wantTabs) {
+      appendLog(exp);
+      renderCall(exp);
+    } else if (topic === "tick" && !exp && shownTabs === wantTabs) {
+      // Planning: leave the form alone so checkboxes don't reset.
+    } else renderSide();
+    draw();
+  }
   new ResizeObserver(() => draw()).observe(canvas);
 }
 
