@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exportSave, parseSave } from "../src/save";
+import { exportSave, parseSave, readSave } from "../src/save";
 import { newGame, SAVE_VERSION } from "../src/sim/state";
 
 describe("save files", () => {
@@ -15,5 +15,12 @@ describe("save files", () => {
     expect(parseSave("not json")).toBeNull();
     expect(parseSave("{}")).toBeNull();
     expect(parseSave(JSON.stringify({ version: 1, cash: 5 }))).toBeNull();
+  });
+
+  it("reports why a save was not used instead of dropping it silently", () => {
+    expect(readSave(null)).toEqual({ state: null });
+    expect(readSave("{broken").problem).toBe("unreadable");
+    expect(readSave(JSON.stringify({ version: SAVE_VERSION + 1 })).problem).toBe("newer");
+    expect(readSave(exportSave(newGame(3))).problem).toBeUndefined();
   });
 });

@@ -1,4 +1,5 @@
 import { CREDITS } from "../data/credits";
+import { VERSION } from "../version";
 import { clearSave, exportSave, parseSave, saveGame } from "../save";
 import { isPrivate, isStreamer, setPrivacy, setStreamer } from "../privacy";
 import { game, update } from "../store";
@@ -26,7 +27,8 @@ export function renderHandbook(body: HTMLElement): void {
       <div class="row"><button class="btn" data-export>Save to file</button><button class="btn" data-import>Load from file</button><button class="btn" data-reset>Start over</button></div>
       <input type="file" accept="application/json,.json" data-file hidden>
       <h4>4. Credits</h4>
-      ${CREDITS.map((c) => `<div class="credit"><b>${esc(c.head)}</b>${c.lines.map((l) => `<p class="dim">${esc(l)}</p>`).join("")}</div>`).join("")}`;
+      ${CREDITS.map((c) => `<div class="credit"><b>${esc(c.head)}</b>${c.lines.map((l) => `<p class="dim">${esc(l)}</p>`).join("")}</div>`).join("")}
+      <p class="dim">Out of Office ${esc(VERSION)}</p>`;
   };
 
   body.addEventListener("input", (e) => {
