@@ -5,7 +5,7 @@ import { endDay, wage } from "../src/sim/economy";
 import { level0, startExpedition, stepExpedition } from "../src/sim/expedition";
 import { generateLevel } from "../src/sim/level";
 import { broughtHome, dataPrice, sellData, startResearch, stageOf } from "../src/sim/research";
-import { migrate, newGame, SAVE_VERSION, type GameState } from "../src/sim/state";
+import { FIRST_TARGET, migrate, newGame, SAVE_VERSION, type GameState } from "../src/sim/state";
 
 function hireAll(s: GameState, n = 3): Worker[] {
   for (const w of s.pool.slice(0, n)) {
@@ -122,6 +122,6 @@ describe("Index and economy", () => {
     const m: any = migrate(s)!;
     expect(m.version).toBe(SAVE_VERSION);
     expect(m.expeditions[0].entities).toEqual([{ id: "smiler", pos: { x: 1, y: 1 }, cooldown: 2, seen: true }]);
-    expect(m.target.amount).toBe(2500);
+    expect(m.target.amount).toBe(FIRST_TARGET.amount);
   });
 });
