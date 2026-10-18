@@ -1,6 +1,7 @@
 import { ITEMS } from "../data/items";
 import { isVeteran } from "../sim/crew";
 import { CALLS } from "../data/calls";
+import { radioStatic, sfx } from "./audio";
 import { entityDef } from "../data/entities";
 import { GEAR, gearDef } from "../data/gear";
 import { LEVELS, levelDef } from "../data/levels";
@@ -227,12 +228,14 @@ export function renderExpedition(body: HTMLElement): void {
     if (!box) return;
     if (!exp.call) {
       box.innerHTML = "";
+      radioStatic(false);
       return;
     }
     const def = CALLS.find((c) => c.id === exp.call!.id)!;
     const left = Math.max(0, callTicks(exp) - (exp.tick - exp.call.asked));
     const pct = Math.round((100 * left) / callTicks(exp));
     if (!box.querySelector(".call")) {
+      radioStatic(true);
       box.innerHTML = `<div class="call inset"><b>The crew is waiting for your call</b>
         <div class="opts">${def.options.map((o, i) => `<button class="btn ${i === 0 ? "go" : ""}" data-answer="${i}">${esc(o)}</button>`).join("")}</div>
         <div class="timer"><i></i></div><span class="dim">If you don't answer, the team lead decides (${esc(def.options[def.fallback])}).</span></div>`;
@@ -243,6 +246,8 @@ export function renderExpedition(body: HTMLElement): void {
   function appendLog(exp: Expedition): void {
     const box = side.querySelector<HTMLElement>(".radio");
     if (!box) return;
+    // One squelch per batch of new lines, so reopening a long log is not a racket.
+    if (logCount < exp.log.length && logCount > 0) sfx("squelch");
     for (; logCount < exp.log.length; logCount++) {
       const p = document.createElement("p");
       p.textContent = exp.log[logCount];

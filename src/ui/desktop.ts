@@ -1,7 +1,8 @@
 import type { GameState } from "../sim/state";
 import { game, onChange } from "../store";
 import { apps } from "./apps";
-import { isMuted, setMuted, sfx } from "./audio";
+import { isCalm, isMuted, setCalm, setMuted, sfx } from "./audio";
+import { refreshCalm } from "./uncanny";
 import { notify, startUncanny } from "./uncanny";
 import { dialog, initWindows, onWindowsChanged, openApp, openWindows, toggle } from "./windows";
 
@@ -17,6 +18,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
         <span class="hide-sm"><img src="./art/icons/U-cash.png" alt=""><b data-cash></b></span>
         <span class="hide-sm"><img src="./art/icons/U-heat.png" alt="">Heat <b data-heat></b></span>
         <span class="hide-sm" data-air hidden><img src="./art/icons/U-infection.png" alt="">Air <b></b></span>
+        <button class="hum" data-calm></button>
         <button class="hum" data-hum></button>
         <span><b data-clock></b></span>
       </div>
@@ -94,6 +96,24 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   desk.addEventListener("pointerdown", (e) => {
     if ((e.target as HTMLElement).closest("button")) sfx("click");
   });
+
+  // Typewriter clack on every key typed into a field.
+  desk.addEventListener("keydown", (e) => {
+    const t = e.target as HTMLElement;
+    if (t.matches("input, textarea")) sfx(e.key === "Enter" ? "return" : "key");
+  });
+
+  const calmBtn = desk.querySelector<HTMLButtonElement>("[data-calm]")!;
+  const showCalm = () => {
+    calmBtn.textContent = isCalm() ? "calm: on" : "calm: off";
+    calmBtn.title = "Calm mode keeps the sound and the glitches at their gentlest.";
+  };
+  calmBtn.addEventListener("click", () => {
+    setCalm(!isCalm());
+    refreshCalm();
+    showCalm();
+  });
+  showCalm();
 
   const hum = desk.querySelector<HTMLButtonElement>("[data-hum]")!;
   const showHum = () => {
