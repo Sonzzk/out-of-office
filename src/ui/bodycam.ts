@@ -47,7 +47,9 @@ const hash = (a: number, b: number, c = 0) => {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 };
 
-export function createBodycam(canvas: HTMLCanvasElement, first: CamInput): Bodycam {
+export function createBodycam(canvas: HTMLCanvasElement, first: CamInput, opts: { fps?: number } = {}): Bodycam {
+  const frameMs = opts.fps ? 1000 / opts.fps : 0; // small tiles do not need sixty frames a second
+  let lastDrawn = 0;
   canvas.width = OUT_W;
   canvas.height = OUT_H;
   canvas.setAttribute("role", "img");
@@ -460,7 +462,10 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput): Bodyc
     // Skip hidden tabs and collapsed windows; they cost battery for nothing.
     // Now and then the tape hangs on a frame, like a worn VHS.
     if (now > holdUntil && Math.random() < 0.004 + danger * 0.01 + input.infection / 20000) holdUntil = now + 90 + Math.random() * 160;
-    if (!document.hidden && canvas.offsetParent && now > holdUntil) render(now);
+    if (!document.hidden && canvas.offsetParent && now > holdUntil && now - lastDrawn >= frameMs) {
+      lastDrawn = now;
+      render(now);
+    }
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);

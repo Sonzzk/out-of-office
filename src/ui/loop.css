@@ -187,3 +187,30 @@
 .call.threat .timer i { background: #a02020; }
 @keyframes threatpulse { 50% { box-shadow: 0 0 0 2px #a02020; } }
 @media (prefers-reduced-motion: reduce) { .call.threat { animation: none; } }
+
+/* Feeds Wall */
+.feeds { display: flex; flex-direction: column; gap: 6px; height: 100%; background: #111; color: #cfd; padding: 6px; }
+.feeds .wall { display: grid; gap: 6px; grid-template-columns: repeat(2, 1fr); flex: 1; align-content: start; overflow: auto; }
+.feeds .wall.n1, .feeds .wall.one { grid-template-columns: 1fr; }
+.feeds .wall.n5, .feeds .wall.n6 { grid-template-columns: repeat(3, 1fr); }
+.feeds .tile { position: relative; cursor: pointer; border: 2px solid #333; background: #000; }
+.feeds .tile canvas { display: block; width: 100%; aspect-ratio: 8 / 5; image-rendering: pixelated; }
+.feeds .tile .lbl { position: absolute; left: 6px; top: 30px; font: 10px monospace; color: #fff; text-shadow: 1px 1px 0 #000; }
+.feeds .tile .led { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #3c3; margin-right: 4px; }
+.feeds .tile .state { position: absolute; right: 6px; bottom: 4px; font: 10px monospace; color: #cfd; text-shadow: 1px 1px 0 #000; }
+.feeds .tile.alert { border-color: #d9a400; animation: feedflash .8s steps(2) infinite; }
+.feeds .tile.alert .led { background: #d9a400; }
+.feeds .tile.threat { border-color: #d22; }
+.feeds .tile.threat .led { background: #d22; }
+.feeds .wall.focused { grid-template-columns: 1fr; }
+.feeds .wall.focused .tile:not(.big) { display: none; }
+.feeds .detail { background: #1a1a1a; padding: 6px; }
+.feeds .detail .opts { display: flex; gap: 6px; margin-bottom: 4px; }
+.feeds .detail .radio { max-height: 90px; overflow: auto; font-size: 11px; }
+.feeds .bar { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.feeds .nofeed { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; overflow: hidden; }
+.feeds .nofeed .static { position: absolute; inset: 0; opacity: .25; background: repeating-linear-gradient(0deg, #222 0 2px, #444 2px 4px); animation: feedstatic .4s steps(3) infinite; }
+.feeds .nofeed > :not(.static) { position: relative; }
+@keyframes feedflash { 50% { box-shadow: 0 0 0 2px #d9a400; } }
+@keyframes feedstatic { to { background-position: 0 8px; } }
+@media (prefers-reduced-motion: reduce) { .feeds .tile.alert, .feeds .nofeed .static { animation: none; } }

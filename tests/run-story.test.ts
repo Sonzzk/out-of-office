@@ -144,3 +144,12 @@ describe("threats", () => {
     expect(exp.threat).toBeUndefined();
   });
 });
+
+describe("replay trace", () => {
+  it("records the crew and every entity each tick, and stops at a cap", () => {
+    const { s, exp } = setup(2);
+    for (let i = 0; i < 20; i++) stepExpedition(s, exp);
+    expect(exp.trace!.length).toBe(20);
+    expect(exp.trace![0]).toHaveLength(2 + exp.entities.length * 2);
+  });
+});

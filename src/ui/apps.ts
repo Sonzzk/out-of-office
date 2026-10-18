@@ -1,6 +1,7 @@
 import type { GameState } from "../sim/state";
 import { renderExpedition } from "./expedition";
 import { renderFacilities } from "./facilities";
+import { renderFeeds } from "./feeds";
 import { renderHandbook } from "./handbook";
 import { renderHR } from "./hr";
 import { renderInbox } from "./inbox";
@@ -13,19 +14,12 @@ export interface DesktopApp extends AppDef {
   icon: string;
 }
 
-// Apps that later stages fill in show an in-world "not licensed" notice for now.
-function unlicensed(body: HTMLElement, name: string): void {
-  body.innerHTML = `<div class="inset memo"></div>`;
-  body.firstElementChild!.textContent =
-    `${name} is not licensed on this workstation.\n\nYour request has been forwarded to IT.\nIT has been forwarded to Level 0.`;
-}
-
 export function apps(_state: GameState): DesktopApp[] {
   const art = "./art/icons/";
   return [
     { id: "map", title: "Facility Map", icon: art + "U-map.png", w: 900, h: 560, render: renderExpedition },
     { id: "inbox", title: "Memo Inbox", icon: art + "U-envelope.png", w: 560, h: 380, render: renderInbox },
-    { id: "feeds", title: "Feeds Wall", icon: art + "U-bodycam.png", w: 420, h: 260, render: (b) => unlicensed(b, "FEEDS.EXE") },
+    { id: "feeds", title: "Feeds Wall", icon: art + "U-bodycam.png", w: 660, h: 460, render: renderFeeds },
     { id: "hr", title: "HR Roster", icon: art + "U-crew.png", w: 560, h: 520, render: renderHR },
     { id: "index", title: "The Index", icon: art + "U-magnifier.png", w: 640, h: 470, render: renderIndex },
     { id: "ledger", title: "Ledger", icon: art + "U-cash.png", w: 440, h: 480, render: renderLedger },

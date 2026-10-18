@@ -47,6 +47,7 @@ export interface Expedition {
   hold?: number; // ticks left of holding still
   hurry?: number; // ticks left of pushing on
   orderAt?: Record<string, number>; // tick each order is ready again
+  trace?: number[][]; // [x, y, then x, y of each entity] per tick, for the Feeds Wall replay
   mod?: number; // how much a choice made just now scales the danger of the next encounter
   boss?: string; // the player's name, for radio lines that use it
   recent?: string[]; // radio lines already heard, so the crew does not repeat itself
@@ -341,7 +342,15 @@ export function stepExpedition(state: GameState, exp: Expedition): void {
     exp.nextChatter = exp.tick + dice.range(9, 15);
   }
   exp.dice = dice.state;
+  recordTrace(exp);
 }
+
+function recordTrace(exp: Expedition): void {
+  const t = (exp.trace ??= []);
+  if (t.length < TRACE_MAX) t.push([exp.pos.x, exp.pos.y, ...exp.entities.flatMap((r) => [r.pos.x, r.pos.y])]);
+}
+
+const TRACE_MAX = 600;
 
 // Hotel Overflow: the front desk calls checkout, and stragglers get checked in.
 function checkout(state: GameState, lv: Level, exp: Expedition, dice: Dice): void {
