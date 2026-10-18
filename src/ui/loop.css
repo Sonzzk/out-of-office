@@ -152,3 +152,12 @@
 .expo .runhead .kit { width: 16px; height: 16px; object-fit: contain; vertical-align: middle; }
 .expo .runhead .kit.used { opacity: 0.3; }
 .expo .runhead .kits { display: flex; gap: 3px; }
+
+/* Facilities */
+.facilities .ups { display: grid; gap: 6px; }
+.facilities .up { display: grid; grid-template-columns: 36px 1fr auto; gap: 8px; align-items: center; padding: 6px 8px; }
+.facilities .up img { width: 32px; height: 32px; object-fit: contain; }
+.facilities .up .btn { white-space: nowrap; }
+.facilities .pips { display: inline-flex; gap: 2px; vertical-align: middle; }
+.facilities .pips i { width: 10px; height: 10px; border: 1px solid var(--sh); background: #000; }
+.facilities .pips i.on { background: #b9a94f; }

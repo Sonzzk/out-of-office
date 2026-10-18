@@ -5,8 +5,9 @@ import { entityDef } from "../data/entities";
 import { GEAR, gearDef } from "../data/gear";
 import { LEVELS, levelDef } from "../data/levels";
 import { indexEntry } from "../data/index";
+import { crewSlots } from "../sim/facilities";
 import { surveyed, isUnlocked } from "../sim/research";
-import { answerCall, callTicks, CREW_SLOTS, levelOf, MAX_CREW, oddsWord, running, startExpedition, suggestLead, type Expedition } from "../sim/expedition";
+import { answerCall, callTicks, levelOf, MAX_CREW, oddsWord, running, startExpedition, suggestLead, type Expedition } from "../sim/expedition";
 import { DARK, FLOOR, idx, type Pt } from "../sim/level";
 import { game, update, watch, type Topic } from "../store";
 import { art, esc } from "./dom";
@@ -36,7 +37,7 @@ export function renderExpedition(body: HTMLElement): void {
     const runs = visible();
     return runs.find((e) => e.id === selected) ?? runs[runs.length - 1];
   };
-  const canPlan = () => running(game()).length < CREW_SLOTS;
+  const canPlan = () => running(game()).length < crewSlots(game());
   const shownLevel = () => current()?.levelId ?? planLevel;
 
   canvas.addEventListener("click", (ev) => {

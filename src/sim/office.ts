@@ -1,5 +1,6 @@
 import { CONTRACT_DONE, HEAT_WARNING, INSPECTION, OVERTIME_DONE } from "../data/memos";
 import { hasQuirk, type Worker } from "./crew";
+import { bribeDiscount, heatCooldown } from "./facilities";
 import { Dice } from "./rng";
 import { addMemo, fill, type GameState } from "./state";
 
@@ -7,7 +8,6 @@ import { addMemo, fill, type GameState } from "./state";
 export const HEAT_PER_DEATH = 10;
 export const HEAT_PER_WIPE = 5;
 export const HEAT_PER_DATA_SALE = 4;
-export const HEAT_COOLDOWN = 5; // per night
 export const HEAT_WARN = 60;
 export const BRIBE_HEAT = 35;
 
@@ -19,7 +19,7 @@ export function addInfection(state: GameState, n: number): void {
   state.infection = Math.max(0, Math.min(100, state.infection + n));
 }
 
-export const bribeCost = (state: GameState) => Math.round((100 + state.heat * 10) / 50) * 50;
+export const bribeCost = (state: GameState) => Math.round(((100 + state.heat * 10) * bribeDiscount(state)) / 50) * 50;
 export const canBribe = (state: GameState) => state.heat >= 10 && state.cash >= bribeCost(state);
 
 export function bribe(state: GameState): boolean {
@@ -66,7 +66,7 @@ export function nightShift(state: GameState): void {
     }
   }
 
-  addHeat(state, -HEAT_COOLDOWN);
+  addHeat(state, -heatCooldown(state));
   if (state.heat >= 100) {
     const fine = Math.max(200, Math.round((state.cash * 0.3) / 50) * 50);
     state.cash -= fine;

@@ -1,5 +1,6 @@
 import { ITEMS } from "../data/items";
 import { canEndDay, endDay, sell, sellPrice, wage } from "../sim/economy";
+import { upkeep } from "../sim/facilities";
 import { DEEP_CLEAN_AMOUNT, DEEP_CLEAN_COST } from "../data/infection";
 import { canDeepClean, deepClean } from "../sim/infection";
 import { bribe, bribeCost, canBribe } from "../sim/office";
@@ -41,7 +42,7 @@ export function renderLedger(body: HTMLElement): void {
         .slice(0, 40)
         .map((e) => `<tr><td class="dim">D${e.day}</td><td>${esc(e.text)}</td><td class="${e.amount < 0 ? "neg" : "pos"}">${money(e.amount)}</td></tr>`)
         .join("")}</table>
-      <p class="dim">Tonight's payroll: ${money(s.crew.filter((w) => w.status !== "dead").reduce((a, w) => a + wage(w), 0))}${s.research ? ". The lab reports tonight." : ""}</p>
+      <p class="dim">Tonight's payroll: ${money(s.crew.filter((w) => w.status !== "dead").reduce((a, w) => a + wage(w), 0))}${upkeep(s) ? `, plus ${money(upkeep(s))} upkeep` : ""}${s.research.length ? ". The lab reports tonight." : ""}</p>
       <button class="btn" data-endday ${canEndDay(s) ? "" : "disabled"}>Close the books (end Day ${s.day})</button>
       ${canEndDay(s) ? "" : `<p class="dim">A crew is still out. You can't go home yet.</p>`}`;
   });

@@ -18,6 +18,7 @@ export interface Worker {
   level: number;
   diedOnDay?: number;
   lastWords?: string;
+  boost?: number; // extra Morale while on a run (break room)
 }
 
 export function quirkDef(id: string) {
@@ -28,7 +29,7 @@ export const hasQuirk = (w: Worker, id: string) => w.quirks.includes(id);
 
 // Hidden quirks still change skills; HR just can't see why.
 export function skill(w: Worker, s: Skill): number {
-  const mod = w.quirks.reduce((sum, q) => sum + (quirkDef(q).mods?.[s] ?? 0), 0);
+  const mod = w.quirks.reduce((sum, q) => sum + (quirkDef(q).mods?.[s] ?? 0), 0) + (s === "morale" ? (w.boost ?? 0) : 0);
   return Math.max(0, Math.min(6, w.skills[s] + mod));
 }
 

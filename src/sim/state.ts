@@ -50,13 +50,14 @@ export interface GameState {
   fog: Record<string, number[]>; // per level id: 1 = revealed cell
   takenToday: Record<string, number[]>; // per level id: loot already picked up today
   index: Record<string, IndexState>;
-  research?: { itemId: string; startedDay: number }; // the lab's one bench
+  research: { itemId: string; startedDay: number }[]; // one sample per lab bench
+  upgrades: Record<string, number>; // facility upgrade id -> tiers bought
   target: { year: number; amount: number; deadline: number }; // the board's money target
   heatWarned: boolean; // Legal has already sent the warning memo
   infectionSeen: number; // highest infection stage that has had its memo
 }
 
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 export const FIRST_TARGET = { year: 1, amount: 2500, deadline: 5 };
 
 // Bring older saves up to date instead of throwing them away.
@@ -97,6 +98,15 @@ export function migrate(save: any): GameState | null {
     save.takenToday = { "level-0": save.takenToday ?? [] };
     for (const e of save.expeditions) e.levelId ??= "level-0";
     save.version = 7;
+  }
+  if (save?.version === 7) {
+    save.research = save.research ? [save.research] : [];
+    save.upgrades = {};
+    for (const e of save.expeditions) {
+      e.gear ??= [];
+      e.used ??= [];
+    }
+    save.version = 8;
   }
   return save?.version === SAVE_VERSION ? (save as GameState) : null;
 }
@@ -150,6 +160,8 @@ export function newGame(seed: number, bossName = "Boss"): GameState {
     target: { ...FIRST_TARGET },
     heatWarned: false,
     infectionSeen: 0,
+    research: [],
+    upgrades: {},
   };
   state.pool = generatePool(state);
   addMemo(state, WELCOME);
