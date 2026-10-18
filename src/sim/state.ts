@@ -48,7 +48,23 @@ export interface GameState {
   takenToday: number[]; // indices of Level 0 loot already picked up today
 }
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
+
+// Bring older saves up to date instead of throwing them away.
+export function migrate(save: any): GameState | null {
+  if (save?.version === 2) {
+    for (const w of [...save.crew, ...save.pool]) {
+      w.quirks = [w.quirk];
+      w.revealed = [w.quirk];
+      delete w.quirk;
+      w.xp = w.runs ?? 0;
+      w.level = 1;
+    }
+    for (const e of save.expeditions) e.encounters ??= 0;
+    save.version = 3;
+  }
+  return save?.version === SAVE_VERSION ? (save as GameState) : null;
+}
 
 export function companyName(seed: number): string {
   const rng = makeRng(seed);

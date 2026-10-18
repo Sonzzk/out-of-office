@@ -1,5 +1,6 @@
 import { ITEMS } from "../data/items";
-import { activeExpedition, level0, oddsWord, startExpedition, type Expedition } from "../sim/expedition";
+import { isVeteran } from "../sim/crew";
+import { activeExpedition, level0, MAX_CREW, oddsWord, startExpedition, suggestLead, type Expedition } from "../sim/expedition";
 import { DARK, FLOOR, idx, type Pt } from "../sim/level";
 import { game, update, watch, type Topic } from "../store";
 import { art, esc } from "./dom";
@@ -15,6 +16,7 @@ export function renderExpedition(body: HTMLElement): void {
   const side = body.querySelector<HTMLElement>(".side")!;
   let marker: Pt | null = null;
   const picked = new Set<number>();
+  let leadId: number | null = null;
   let dismissed = -1; // id of the finished run whose debrief was closed
 
   const current = (): Expedition | undefined => {
@@ -41,6 +43,12 @@ export function renderExpedition(body: HTMLElement): void {
 
   side.addEventListener("click", (ev) => {
     const t = ev.target as HTMLElement;
+    const leadBox = t.closest<HTMLInputElement>("input[data-lead]");
+    if (leadBox) {
+      leadId = Number(leadBox.dataset.lead);
+      renderSide();
+      return;
+    }
     const box = t.closest<HTMLInputElement>("input[data-pick]");
     if (box) {
       const id = Number(box.dataset.pick);
@@ -51,8 +59,10 @@ export function renderExpedition(body: HTMLElement): void {
     }
     if (t.closest("[data-send]") && marker) {
       const m = marker;
-      update((s) => void startExpedition(s, [...picked], m));
+      const lead = leadId ?? undefined;
+      update((s) => void startExpedition(s, [...picked], m, lead));
       picked.clear();
+      leadId = null;
       marker = null;
     }
     if (t.closest("[data-dismiss]")) {
@@ -68,6 +78,9 @@ export function renderExpedition(body: HTMLElement): void {
     if (exp) return renderRun(exp);
     const idle = s.crew.filter((w) => w.status === "idle");
     for (const id of [...picked]) if (!idle.some((w) => w.id === id)) picked.delete(id);
+    const team = idle.filter((w) => picked.has(w.id));
+    if (leadId === null || !picked.has(leadId)) leadId = team.length ? suggestLead(team).id : null;
+    const full = picked.size >= MAX_CREW;
     side.innerHTML = `
       <img class="lvl" src="${art.level("L00-waiting-floor.png")}" alt="">
       <div class="lvname"><b>Level 0</b> · The Waiting Floor<br><span class="dim">Class 1. Endless yellow halls. Smilers in the dark patches.</span></div>
@@ -76,12 +89,15 @@ export function renderExpedition(body: HTMLElement): void {
         idle.length
           ? idle
               .map(
-                (w) => `<label class="pick"><input type="checkbox" data-pick="${w.id}" ${picked.has(w.id) ? "checked" : ""}>
-                <img src="${art.portrait(w.portrait)}" alt="">${esc(w.name)}</label>`,
+                (w) => `<div class="pick"><label><input type="checkbox" data-pick="${w.id}" ${picked.has(w.id) ? "checked" : ""}
+                  ${full && !picked.has(w.id) ? "disabled" : ""}>
+                <img src="${art.portrait(w.portrait)}" alt="">${esc(w.name)} <span class="dim">Lv ${w.level}${isVeteran(w) ? " ★" : ""}</span></label>
+                ${picked.has(w.id) && picked.size > 1 ? `<label class="lead"><input type="radio" name="lead" data-lead="${w.id}" ${leadId === w.id ? "checked" : ""}>Lead</label>` : ""}</div>`,
               )
               .join("")
           : `<p class="dim">Nobody available. Hire someone in HR Roster.</p>`
       }
+      ${picked.size ? `<p class="dim">Up to ${MAX_CREW}. The team lead decides when to turn back.</p>` : ""}
       <h4>2. Drop a marker</h4>
       <p class="dim">${marker ? "Marker set. Click the map to move it." : "Click anywhere on the map. Dark areas are unexplored."}</p>
       <div class="odds">Survival odds: <b>${picked.size ? oddsWord(s, [...picked]) : "..."}</b></div>
@@ -111,7 +127,8 @@ export function renderExpedition(body: HTMLElement): void {
             exp.result!.survivors
               ? `${exp.result!.survivors} came back with ${exp.result!.loot.length ? exp.result!.loot.length + " item" + (exp.result!.loot.length > 1 ? "s" : "") + " to sell in the Ledger" : "nothing"}.`
               : "Nobody came back. Neither did the loot."
-          }${exp.result!.dead.length ? `<br>Lost: ${exp.result!.dead.map(esc).join(", ")}. HR has sent a memo.` : ""}</div>
+          }${exp.result!.dead.length ? `<br>Lost: ${exp.result!.dead.map(esc).join(", ")}. HR has sent a memo.` : ""}
+          ${exp.result!.notes.map((n) => `<br>${esc(n)}`).join("")}</div>
           <button class="btn go" data-dismiss>Plan the next run</button>`
         : "";
     side.innerHTML = `${head}<div class="radio inset" aria-live="polite"></div>${debrief}`;

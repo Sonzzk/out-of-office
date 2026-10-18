@@ -34,3 +34,12 @@ export const WIPE_MEMO = {
   subject: "Expedition outcome: total",
   body: "No one came back from today's run, so nothing came back either.\n\nThe positions have been reposted. The flyer is unchanged.\n\n- Logistics",
 };
+
+export const EMPLOYEE_OF_THE_MONTH = {
+  from: "HR",
+  subject: "Employee of the Month: {name}",
+  body:
+    "Congratulations to {name}, this month's Employee of the Month (this month began this morning).\n\n" +
+    "{name} has survived {runs} expedition{s} and is now a level {level} asset.\n\n" +
+    "Their prize is a laminated plaque and the privilege of going in first tomorrow.\n\n- HR",
+};

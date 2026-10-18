@@ -1,6 +1,7 @@
 import { ITEMS } from "../data/items";
+import { EMPLOYEE_OF_THE_MONTH } from "../data/memos";
 import { generatePool } from "./crew";
-import type { GameState } from "./state";
+import { addMemo, fill, type GameState } from "./state";
 
 export function sellPrice(itemId: string): number {
   return ITEMS[itemId].value;
@@ -24,6 +25,13 @@ export function canEndDay(state: GameState): boolean {
 // expeditions are cleared so the map starts clean.
 export function endDay(state: GameState): boolean {
   if (!canEndDay(state)) return false;
+  // Whoever survived the most runs gets a plaque, if anyone went out today.
+  const wentOut = state.expeditions.length > 0;
+  const best = state.crew.filter((w) => w.status === "idle" && w.runs > 0).sort((a, b) => b.xp - a.xp)[0];
+  if (wentOut && best) {
+    const vars = { name: best.name, runs: best.runs, s: best.runs === 1 ? "" : "s", level: best.level };
+    addMemo(state, { from: EMPLOYEE_OF_THE_MONTH.from, subject: fill(EMPLOYEE_OF_THE_MONTH.subject, vars), body: fill(EMPLOYEE_OF_THE_MONTH.body, vars) });
+  }
   state.day++;
   state.takenToday = [];
   state.expeditions = [];
