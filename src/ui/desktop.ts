@@ -1,4 +1,5 @@
 import type { GameState } from "../sim/state";
+import { onChange } from "../store";
 import { apps } from "./apps";
 import { isMuted, setMuted, sfx } from "./audio";
 import { notify, startUncanny } from "./uncanny";
@@ -118,6 +119,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   };
   tick();
   setInterval(tick, 1000);
+  onChange(tick);
 
   startUncanny(desk, work);
 

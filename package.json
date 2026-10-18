@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "shot": "node scripts/shot.mjs",
+    "playtest": "node scripts/playtest-loop.mjs",
     "artifact": "node scripts/artifact.mjs"
   },
   "devDependencies": {
