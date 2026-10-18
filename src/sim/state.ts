@@ -59,6 +59,11 @@ export interface GameState {
   heatWarned: boolean; // Legal has already sent the warning memo
   infectionSeen: number; // highest infection stage that has had its memo
   tutorial: number; // orientation step (see sim/tutorial.ts); TUTORIAL_DONE when finished
+  // Added after the first release; older saves simply do not have them.
+  firstFind?: boolean; // the first run home has already been given its find
+  firstSale?: boolean; // the first-sale bonus has been paid
+  projects?: string[]; // office projects built, see data/projects.ts
+  recovered?: number[]; // dead crew whose belongings were recovered
 }
 
 export const SAVE_VERSION = 10;

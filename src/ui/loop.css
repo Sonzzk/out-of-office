@@ -167,3 +167,14 @@
 .inbox .choices { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0 4px; white-space: normal; }
 .inbox .decided { margin-top: 10px; padding: 6px 8px; border-left: 3px solid var(--red); white-space: normal; }
 .inbox .ask { color: var(--red); }
+
+/* Run profit line on the debrief, and the desktop changes from office projects */
+.profit { margin-top: 6px; padding-top: 4px; border-top: 1px dashed var(--dark); }
+.profit.pos b { color: #1b6b2a; }
+.profit.neg b { color: #a02020; }
+.ledger h3 .btn { margin-left: 8px; font-size: 11px; font-weight: normal; }
+.sticky-memorial { position: absolute; right: 14px; top: 12px; z-index: 5; width: 130px; padding: 8px 10px; background: #f3e98a; color: #3a3410;
+  font: 11px/1.35 "Courier New", monospace; box-shadow: 2px 3px 0 rgba(0,0,0,.35); transform: rotate(1.5deg); pointer-events: none; }
+.sticky-memorial b { display: block; margin-bottom: 3px; text-transform: uppercase; letter-spacing: .08em; }
+.p-cage .taskbar { border-top: 4px solid transparent; border-image: repeating-linear-gradient(135deg, #f2c200 0 8px, #1b1b1b 8px 16px) 4; }
+.p-corner .win:not(.dialog) { box-shadow: inset 0 0 0 2px #8a5a2b, inset 0 0 0 3px #c89a5a; }

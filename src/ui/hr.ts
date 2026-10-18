@@ -1,6 +1,6 @@
 import { LEVEL_XP, SKILL_LABEL, SKILLS, SOURCE_INFO } from "../data/crew";
 import { ODD_MOODS } from "../data/infection";
-import { hire, isVeteran, quirkDef, skill, type Worker } from "../sim/crew";
+import { canTrain, hire, isVeteran, quirkDef, skill, train, trainCost, type Worker } from "../sim/crew";
 import { infectionStage } from "../sim/infection";
 import { assign, contractPay, OVERTIME_PAY } from "../sim/office";
 import { game, update, watch } from "../store";
@@ -51,6 +51,8 @@ export function renderHR(body: HTMLElement): void {
   body.addEventListener("click", (e) => {
     const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-hire]");
     if (btn) update((s) => void hire(s, Number(btn.dataset.hire)));
+    const course = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-train]");
+    if (course) update((s) => void train(s, Number(course.dataset.train)));
     const job = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-job]");
     if (job) update((s) => void assign(s, Number(job.dataset.worker), job.dataset.job as "contract" | "overtime"));
   });
@@ -96,7 +98,7 @@ export function renderHR(body: HTMLElement): void {
                   ${quirkLines(w)}${oddMood(w, infectionStage(s))}
                   ${
                     w.status === "idle"
-                      ? `<div class="jobs"><button class="btn" data-job="contract" data-worker="${w.id}" title="Safe work on the lit edge. Back tonight.">Safe contract +${money(contractPay(w))} (out today)</button>
+                      ? `<div class="jobs">${w.level < LEVEL_XP.length ? `<button class="btn" data-train="${w.id}" ${canTrain(s, w) ? "" : "disabled"} title="A course at a hotel with a very long carpet. Next level, tonight.">${w.trainedDay === s.day ? "Trained today" : `Training course ${money(trainCost(w))}`}</button>` : ""}<button class="btn" data-job="contract" data-worker="${w.id}" title="Safe work on the lit edge. Back tonight.">Safe contract +${money(contractPay(w))} (out today)</button>
                         <button class="btn" data-job="overtime" data-worker="${w.id}" title="Pays well. Nobody likes the Overtime Room.">Unpaid overtime +${money(OVERTIME_PAY)} (out today)</button></div>`
                       : ""
                   }

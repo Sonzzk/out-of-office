@@ -8,6 +8,7 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { hire, type Worker } from "../src/sim/crew";
 import { endDay, sell } from "../src/sim/economy";
 import { startExpedition, stepExpedition, levelOf, running, answerCall, type Expedition } from "../src/sim/expedition";
+import { upgradeDef } from "../src/data/upgrades";
 import { buyUpgrade, canUpgrade, crewSlots } from "../src/sim/facilities";
 import { LEVELS } from "../src/data/levels";
 import { canResearch, isUnlocked, startResearch } from "../src/sim/research";
@@ -20,8 +21,7 @@ const GAMES = Number(process.argv[2] ?? 60);
 const DAYS = Number(process.argv[3] ?? 30);
 const TICK_S = 0.55;
 const UPGRADE_ORDER = ["dispatch", "mast", "security", "lab", "breakroom"];
-const nextCost = (s: GameState, id: string) =>
-  ({ dispatch: [3000, 8000], lab: [2400, 6000], mast: [1200, 3000], security: [1600, 4000], breakroom: [1400, 4000] } as Record<string, number[]>)[id]?.[s.upgrades[id] ?? 0] ?? 1e9;
+const nextCost = (s: GameState, id: string) => upgradeDef(id).tiers[s.upgrades[id] ?? 0]?.cost ?? 1e9;
 
 // Seconds a casual player needs for each kind of action (guesses from watching the UI).
 const COST = { hire: 8, plan: 14, pin: 3, answer: 4, debrief: 6, sell: 5, research: 6, upgrade: 10, closeBooks: 4, memo: 8 };

@@ -6,21 +6,39 @@ import { rollEvent, resolvePending } from "./events";
 import { upkeep } from "./facilities";
 import { nightInfection } from "./infection";
 import { nightShift } from "./office";
+import { saleMultiplier } from "./projects";
 import { finishResearch } from "./research";
 import { addMemo, fill, type GameState } from "./state";
 
-export function sellPrice(itemId: string): number {
-  return ITEMS[itemId].value;
+export function sellPrice(itemId: string, state?: GameState): number {
+  return Math.round(ITEMS[itemId].value * (state ? saleMultiplier(state) : 1));
 }
+
+export const FIRST_SALE_BONUS = 100;
 
 export function sell(state: GameState, lootId: number): boolean {
   const item = state.loot.find((l) => l.id === lootId);
   if (!item) return false;
-  const price = sellPrice(item.itemId);
+  const price = sellPrice(item.itemId, state);
   state.loot = state.loot.filter((l) => l !== item);
   state.cash += price;
   state.ledger.unshift({ day: state.day, text: `Sold ${ITEMS[item.itemId].name}`, amount: price });
+  // Accounting pays a little extra the very first time, so day one is not a loss.
+  if (!state.firstSale) {
+    state.firstSale = true;
+    state.cash += FIRST_SALE_BONUS;
+    state.ledger.unshift({ day: state.day, text: "Accounting: first-sale bonus (the form said so)", amount: FIRST_SALE_BONUS });
+  }
   return true;
+}
+
+export function sellAll(state: GameState): number {
+  let total = 0;
+  for (const l of [...state.loot]) {
+    const price = sellPrice(l.itemId, state);
+    if (sell(state, l.id)) total += price;
+  }
+  return total;
 }
 
 export function canEndDay(state: GameState): boolean {

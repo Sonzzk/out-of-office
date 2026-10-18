@@ -7,9 +7,10 @@ import { CHECKOUT_TICK, CHECKOUT_WARN, levelDef } from "../data/levels";
 import { PLAQUES, WIPE_MEMO } from "../data/memos";
 import * as RADIO from "../data/radio";
 import { gainXp, hasQuirk, quirkDef, revealQuirk, skill, type Worker } from "./crew";
-import { BASE_CREW_SLOTS, callWait, crewSlots, moraleBoost } from "./facilities";
+import { BASE_CREW_SLOTS, callWait, crewSlots, freeFirstAid, moraleBoost } from "./facilities";
 import { DARK, dist, findPath, generateLevel, idx, nearestOpen, neighbors, WALL, type Level, type Pt } from "./level";
 import { addHeat, addInfection, HEAT_PER_DEATH, HEAT_PER_WIPE } from "./office";
+import { deathHeat, deathInfection } from "./projects";
 import { broughtHome, checkSurvey, isMastered, isUnlocked, learn, stageOf } from "./research";
 import { Dice } from "./rng";
 import { addMemo, fill, type GameState } from "./state";
@@ -161,6 +162,7 @@ export function startExpedition(
     state.cash -= gearDef(id).cost;
     state.ledger.unshift({ day: state.day, text: `Gear: ${gearDef(id).name}`, amount: -gearDef(id).cost });
   }
+  if (freeFirstAid(state) && !exp.gear.includes("firstaid")) exp.gear.push("firstaid"); // the break room stocks one
   reveal(state, lv, levelId, exp.pos);
   state.expeditions.push(exp);
   return exp;
@@ -529,6 +531,14 @@ function finish(state: GameState, exp: Expedition): void {
   const dice = new Dice(exp.dice);
   const notes: string[] = [];
   let loot = alive.length ? [...exp.carried] : [];
+  // The first crew home always has something to show for it, so day one is not a loss.
+  if (alive.length && !state.firstFind) {
+    state.firstFind = true;
+    if (!loot.some((id) => ITEMS[id].value >= 300)) {
+      loot.push("orientation-polaroid");
+      notes.push("Taped to the inside of the door: an old photo of a crew nobody hired. Somebody will pay for that.");
+    }
+  }
   const pocketer = alive.find((w) => hasQuirk(w, "pockets"));
   if (pocketer && loot.length && dice.chance(0.5)) {
     const kept = loot.splice(dice.int(loot.length), 1)[0];
@@ -563,8 +573,8 @@ function finish(state: GameState, exp: Expedition): void {
       body: fill(tpl.body, { name: w.name, words: w.lastWords ?? "..." }),
     });
   }
-  addHeat(state, dead.length * HEAT_PER_DEATH + (alive.length ? 0 : HEAT_PER_WIPE));
-  addInfection(state, dead.length * 2);
+  addHeat(state, deathHeat(state, dead.length * HEAT_PER_DEATH) + (alive.length ? 0 : HEAT_PER_WIPE));
+  addInfection(state, dead.length * deathInfection(state));
   if (!alive.length) addMemo(state, WIPE_MEMO);
 }
 

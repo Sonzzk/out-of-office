@@ -3,6 +3,8 @@ import { game, onChange } from "../store";
 import { apps } from "./apps";
 import { isCalm, isMuted, setCalm, setMuted, sfx } from "./audio";
 import { refreshCalm } from "./uncanny";
+import { has } from "../sim/projects";
+import { esc } from "./dom";
 import { shownName } from "../privacy";
 import { startFourthWall } from "./fourthwall";
 import { startGlitch } from "./glitch";
@@ -21,6 +23,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
       <div class="tray inset">
         <span class="hide-sm"><img src="./art/icons/U-cash.png" alt=""><b data-cash></b></span>
         <span class="hide-sm"><img src="./art/icons/U-heat.png" alt="">Heat <b data-heat></b></span>
+        <span class="hide-sm" data-floor hidden><b>FL 2</b></span>
         <span class="hide-sm" data-air hidden><img src="./art/icons/U-infection.png" alt="">Air <b></b></span>
         <button class="hum" data-calm></button>
         <button class="hum" data-hum></button>
@@ -139,6 +142,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
     const air = desk.querySelector<HTMLElement>("[data-air]")!;
     air.hidden = state.infection < 20;
     air.querySelector("b")!.textContent = state.infection >= 60 ? "BAD" : `${100 - state.infection}%`;
+    projects(desk, state);
     // Once in a long while the clock says 11:47 PM for a few seconds. It always does.
     if (frozen > 0) frozen--;
     else if (Math.random() < 0.0015) frozen = 6;
@@ -180,4 +184,22 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
       ),
     75_000,
   );
+}
+
+// Office projects show up on the desktop itself.
+function projects(desk: HTMLElement, state: GameState): void {
+  for (const id of ["memorial", "cage", "corner", "floor2"]) desk.classList.toggle(`p-${id}`, has(state, id));
+  desk.querySelector<HTMLElement>("[data-floor]")!.hidden = !has(state, "floor2");
+  const side = desk.querySelector<HTMLElement>(".startmenu .side")!;
+  side.textContent = has(state, "corner") ? `${state.bossName.toUpperCase()}'S OFFICE` : "OUT OF OFFICE";
+  let note = desk.querySelector<HTMLElement>(".sticky-memorial");
+  if (!has(state, "memorial")) return void note?.remove();
+  const dead = state.crew.filter((w) => w.status === "dead").slice(-7);
+  if (!note) {
+    note = document.createElement("div");
+    note.className = "sticky-memorial";
+    desk.querySelector(".work")!.appendChild(note);
+  }
+  const html = `<b>In memory</b>${dead.length ? dead.map((w) => `<div>${esc(w.name)}</div>`).join("") : `<div class="dim">Nobody. Yet.</div>`}`;
+  if (note.innerHTML !== html) note.innerHTML = html;
 }

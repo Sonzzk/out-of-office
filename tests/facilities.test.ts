@@ -22,10 +22,14 @@ describe("facilities", () => {
     s.cash = 10000;
     expect(buyUpgrade(s, "mast")).toBe(true);
     expect(buyUpgrade(s, "mast")).toBe(true);
-    expect(canUpgrade(s, "mast")).toBe(false);
     expect(tier(s, "mast")).toBe(2);
-    expect(s.cash).toBe(10000 - 1200 - 3000);
+    expect(s.cash).toBe(10000 - 800 - 3000);
     expect(upkeep(s)).toBe(80);
+    const top = newGame(1);
+    top.cash = 50000;
+    for (let i = 0; i < 4; i++) buyUpgrade(top, "mast");
+    expect(canUpgrade(top, "mast")).toBe(false);
+    expect(tier(top, "mast")).toBe(4);
     hireAll(s, 1);
     const before = s.cash;
     endDay(s);
