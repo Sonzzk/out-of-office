@@ -15,14 +15,33 @@ let muzak: { gain: GainNode; filter: BiquadFilterNode; vibrato: GainNode } | nul
 
 const MUTE_KEY = "out-of-office.muted";
 const CALM_KEY = "out-of-office.calm";
+const VOL_KEY = "out-of-office.volume";
+let volume = 1;
 const MUZAK_LEVEL = 0.03;
 const HUM_LEVEL = 0.05;
 
 try {
   muted = localStorage.getItem(MUTE_KEY) === "1";
   calm = localStorage.getItem(CALM_KEY) === "1";
+  const v = Number(localStorage.getItem(VOL_KEY));
+  if (localStorage.getItem(VOL_KEY) !== null && v >= 0 && v <= 1) volume = v;
 } catch {
   // Storage can be blocked; default to sound on.
+}
+
+export function getVolume(): number {
+  return volume;
+}
+
+/** Master volume, 0..1, remembered between visits. */
+export function setVolume(v: number): void {
+  volume = Math.max(0, Math.min(1, v));
+  try {
+    localStorage.setItem(VOL_KEY, String(volume));
+  } catch {
+    // ignore
+  }
+  if (ctx && master && !muted) master.gain.setTargetAtTime(volume, ctx.currentTime, 0.05);
 }
 
 /** Calm mode: the sound (and the desktop effects) stay at their gentlest. */
@@ -61,7 +80,7 @@ export function setMuted(on: boolean): void {
   } catch {
     // ignore
   }
-  if (ctx && master) master.gain.setTargetAtTime(on ? 0 : 1, ctx.currentTime, 0.05);
+  if (ctx && master) master.gain.setTargetAtTime(on ? 0 : volume, ctx.currentTime, 0.05);
 }
 
 export function startAudio(): void {
@@ -70,7 +89,7 @@ export function startAudio(): void {
   if (!AC) return;
   ctx = new AC();
   master = ctx.createGain();
-  master.gain.value = muted ? 0 : 1;
+  master.gain.value = muted ? 0 : volume;
   master.connect(ctx.destination);
 
   hum = ctx.createGain();
