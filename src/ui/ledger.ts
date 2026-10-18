@@ -1,4 +1,7 @@
-import { goalText } from "../sim/goals";
+import { goalPay, goalText } from "../sim/goals";
+import { canDeliver, contractHave, contractText, deliver } from "../sim/contracts";
+import { twistToday } from "../sim/twists";
+import { sfx } from "./audio";
 import { ITEMS } from "../data/items";
 import { canEndDay, endDay, sell, sellAll, sellPrice, wage } from "../sim/economy";
 import { upkeep } from "../sim/facilities";
@@ -8,13 +11,28 @@ import { bribe, bribeCost, canBribe } from "../sim/office";
 import { game, update, watch } from "../store";
 import { art, esc, money } from "./dom";
 
+// The buyer on the phone after a Sell all. It sits in the Ledger for a few seconds.
+const BUYER_LINES = ["Hm. Hm. Fine.", "Put it on the pile. No, the other pile.", "I did not hear that. I will take it.", "Cash. Do not count it in front of me."];
+const KEEN_LINES = ["Hm. Hm. Better than fine.", "You caught me on a good day. Do not make it a habit."];
+const CHATTER_MS = 4500;
+let chatter: { text: string; at: number } | undefined;
+
+function buyerCall(total: number, keen: boolean): void {
+  const list = keen ? KEEN_LINES : BUYER_LINES;
+  chatter = { text: list[total % list.length], at: Date.now() };
+  sfx("ding");
+  setTimeout(() => update(() => {}), CHATTER_MS + 50);
+}
+
 export function renderLedger(body: HTMLElement): void {
   body.classList.add("ledger");
   body.addEventListener("click", (e) => {
     const t = e.target as HTMLElement;
     const sellBtn = t.closest<HTMLButtonElement>("[data-sell]");
     if (sellBtn) update((s) => void sell(s, Number(sellBtn.dataset.sell)));
-    if (t.closest("[data-sellall]")) update((s) => void sellAll(s));
+    if (t.closest("[data-sellall]")) update((s) => buyerCall(sellAll(s), !!twistToday(s) && twistToday(s)!.id === "buyer"));
+    const del = t.closest<HTMLButtonElement>("[data-deliver]");
+    if (del) update((s) => void deliver(s, Number(del.dataset.deliver)));
     if (t.closest("[data-endday]")) update((s) => void endDay(s));
     if (t.closest("[data-bribe]")) update((s) => void bribe(s));
     if (t.closest("[data-clean]")) update((s) => void deepClean(s));
@@ -22,8 +40,10 @@ export function renderLedger(body: HTMLElement): void {
   watch(body, () => {
     const s = game();
     body.innerHTML = `
+      ${twistLine(s)}
       <div class="cash inset"><span class="dim">Balance</span><b>${money(s.cash)}</b></div>
-      ${goal(s)}
+      ${buyer()}
+      ${goals(s)}
       ${target(s)}
       ${heat(s)}
       ${s.infection >= 10 ? `<div class="heat inset"><div class="dim">Facilities reports the air is <b>${s.infection >= 60 ? "bad" : s.infection >= 30 ? "damp" : "a bit off"}</b>.</div>
@@ -51,13 +71,36 @@ export function renderLedger(body: HTMLElement): void {
   });
 }
 
-// Today's goal from the Board.
-function goal(s: ReturnType<typeof game>): string {
+// Today's twist, if the morning brought one.
+function twistLine(s: ReturnType<typeof game>): string {
+  const t = twistToday(s);
+  return t ? `<div class="twist inset"><b>${esc(t.name)}.</b> ${esc(t.text)}</div>` : "";
+}
+
+// Phone chatter from the buyer, with a stamp.
+function buyer(): string {
+  if (!chatter || Date.now() - chatter.at > CHATTER_MS) return "";
+  const fresh = Date.now() - chatter.at < 700;
+  return `<div class="buyer inset"><span class="dim">Buyer:</span> ${esc(chatter.text)}<span class="stamp ${fresh ? "fresh" : ""}">PAID</span></div>`;
+}
+
+// The daily goal and any open contracts, in one place.
+function goals(s: ReturnType<typeof game>): string {
   const g = s.goal;
-  if (!g || g.day !== s.day) return "";
-  const pct = Math.min(100, Math.round((100 * g.have) / g.need));
-  return `<div class="target inset"><div class="dim">Today's goal: <b>${goalText(g)}</b> ${g.done ? "Done, bonus paid." : `Pays ${money(g.reward)}. (${g.have}/${g.need})`}</div>
-    <div class="bar"><i style="width:${pct}%" class="${g.done ? "met" : ""}"></i></div></div>`;
+  const rows: string[] = [];
+  if (g && g.day === s.day) {
+    const pct = Math.min(100, Math.round((100 * g.have) / g.need));
+    rows.push(`<div class="dim">Today's goal: <b>${goalText(g)}</b> ${g.done ? "Done, bonus paid." : `Pays ${money(goalPay(s, g))}${goalPay(s, g) > g.reward ? " (double)" : ""}. (${g.have}/${g.need})`}</div>
+      <div class="bar"><i style="width:${pct}%" class="${g.done ? "met" : ""}"></i></div>`);
+  }
+  for (const c of s.contracts ?? []) {
+    const have = Math.min(c.need, contractHave(s, c));
+    const left = c.deadline - s.day;
+    rows.push(`<div class="dim">Contract: <b>${esc(contractText(c))}</b> for ${money(c.reward)}, by Day ${c.deadline} (${left <= 0 ? "last day" : left === 1 ? "1 day left" : `${left} days left`}). (${have}/${c.need})</div>
+      <div class="bar"><i style="width:${Math.round((100 * have) / c.need)}%" class="${canDeliver(s, c) ? "met" : ""}"></i></div>
+      <button class="btn" data-deliver="${c.id}" ${canDeliver(s, c) ? "" : "disabled"}>Deliver</button>`);
+  }
+  return rows.length ? `<h3>Goals</h3><div class="target inset">${rows.join("")}</div>` : "";
 }
 
 // The Board's target for this fiscal year, as a progress bar.

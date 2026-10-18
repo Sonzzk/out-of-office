@@ -96,6 +96,15 @@
 .ledger .target .bar i { display: block; height: 100%; background: #b9a94f; }
 .ledger .target .bar i.met { background: #6fa04a; }
 
+/* Twist line and buyer call in the Ledger */
+.ledger .twist { padding: 6px 8px; margin-bottom: 6px; background: #efe9b4; }
+.ledger .buyer { padding: 6px 8px; margin-top: 6px; display: flex; align-items: center; gap: 6px; }
+.ledger .stamp { margin-left: auto; margin-right: 10px; flex-shrink: 0; border: 2px solid #a33; color: #a33; font-weight: bold; padding: 0 6px; transform: rotate(-8deg); }
+.ledger .stamp.fresh { animation: stamp-in 0.35s ease-out; }
+@keyframes stamp-in { from { transform: rotate(-8deg) scale(2.4); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ledger .stamp.fresh { animation: none; } }
+.tray .twist-tag { font-weight: bold; }
+
 /* Index */
 .index { display: flex; flex-direction: column; gap: 6px; height: 100%; box-sizing: border-box; }
 .index .tabs { display: flex; gap: 2px; align-items: end; }

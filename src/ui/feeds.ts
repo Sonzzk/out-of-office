@@ -29,6 +29,7 @@ export function renderFeeds(body: HTMLElement): void {
       taken: s.takenToday[exp.levelId] ?? [],
       levelName: levelDef(exp.levelId).name,
       depth: levelDef(exp.levelId).depth,
+      mates: exp.crewIds.filter((id) => id !== lead?.id).map((id) => s.crew.find((w) => w.id === id)).filter((w) => w?.status === "out").map((w) => w!.portrait),
     };
   };
 
