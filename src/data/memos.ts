@@ -61,6 +61,15 @@ export const TARGET_MET = {
     "The Board would like to remind you that satisfaction is not a growth strategy.\n\n- The Board",
 };
 
+export const TARGET_REACHED = {
+  from: "The Board",
+  subject: "Fiscal year {year}: target reached",
+  body:
+    "The Board notes that {company} now holds {amount} in the bank. It has {cash}.\n\n" +
+    "The Board does not pay out early. It checks the balance on the morning of Day {deadline}, and only then.\n\n" +
+    "Hold the balance until then. If it is short that morning, the Board will give you three more days and a memo about its disappointment. Nothing else. For now.\n\n- The Board",
+};
+
 export const TARGET_MISSED = {
   from: "The Board",
   subject: "Fiscal year {year}: concerns",

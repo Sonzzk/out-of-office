@@ -35,7 +35,7 @@ export const EVENTS: Record<string, EventDef> = {
     bodies: [
       "The family of {name} has filed a wrongful death suit. They are asking for {amount}.\n\nOur position is that {name} signed the waiver. Their position is that the waiver was written in a language that does not exist.\n\n- Legal",
     ],
-    choices: ["Settle quietly ({amount})", "Fight it in court", "Ignore it"],
+    choices: ["Settle quietly ({amount}, Heat -5)", "Fight it in court (45% free, else {double}, Heat +10)", "Ignore it (Heat +12)"],
     fallback: 2,
     cooldown: 0,
   },

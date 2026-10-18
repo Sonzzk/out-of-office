@@ -114,6 +114,7 @@ const load = async (c, saveFile, query = "fast") => {
   await page.waitForTimeout(400);
   await mark(c, "12-sold", "After selling");
   await page.locator('.win[data-app="ledger"] [data-endday]').click();
+  if (await page.locator(".dialog .btn", { hasText: "Close anyway" }).count()) await page.locator(".dialog .btn", { hasText: "Close anyway" }).click(); // pre-close checklist
   await page.waitForTimeout(1500);
   await mark(c, "13-day2", "Day 2 begins");
   await finish(c);

@@ -236,3 +236,22 @@
   background: radial-gradient(ellipse at 40% 45%, rgba(70,55,20,.9) 0 30%, rgba(90,70,25,.55) 55%, rgba(90,70,25,0) 72%);
   transform: scale(var(--grow, 1)) rotate(-8deg); transition: opacity 2s, transform 4s; mix-blend-mode: multiply; filter: blur(2px); }
 .breakroom p { margin: 6px 0; }
+
+/* Management pass: sell confirm, sticky close bar, folded applicants, project cards */
+.dlg p { white-space: pre-line; margin: 0; }
+.hr .cards[hidden] { display: none; }
+.hr h3 .fold { margin-left: auto; padding: 1px 8px; font-size: 11px; }
+.sk em { font-style: normal; font-size: 10px; align-self: center; }
+.facilities .up.proj { grid-template-columns: 1fr auto; }
+.facilities .up .btn .sub { font-size: 10px; color: var(--dim); }
+.ledger .tag { font-weight: normal; font-size: 10px; color: var(--title); border: 1px solid var(--title); padding: 0 3px; margin-left: 2px; }
+.ledger .sellconfirm { display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 6px 8px; margin: 6px 0; }
+.ledger .sellconfirm .acts { display: flex; gap: 6px; flex: none; }
+.ledger .sellconfirm .dim { display: block; }
+.ledger .target .btn + .btn { margin-left: 4px; }
+.tx .dayhead td { background: var(--beige); font-weight: bold; padding-top: 4px; }
+.tx .dayhead td:last-child { text-align: right; }
+.ledger .closebar { position: sticky; bottom: -8px; margin: 8px -8px -8px; padding: 6px 8px 8px; background: var(--beige); border-top: 2px solid var(--sh); display: grid; gap: 4px; z-index: 2; }
+.ledger .closebar .figs { display: grid; grid-template-columns: 1fr auto; gap: 1px 10px; font-size: 12px; }
+.ledger .closebar .figs b { text-align: right; font-variant-numeric: tabular-nums; }
+.ledger .target .acts { display: flex; gap: 6px; }

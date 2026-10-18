@@ -32,6 +32,12 @@ export const freeFirstAid = (state: GameState) => tier(state, "breakroom") >= 4;
 export const upkeep = (state: GameState) =>
   UPGRADES.reduce((a, u) => a + Math.min(2, tier(state, u.id)) * UPKEEP_PER_TIER + Math.max(0, tier(state, u.id) - 2) * UPKEEP_PER_LATE_TIER, 0);
 
+// What buying the next tier of an upgrade adds to the nightly upkeep.
+export function upkeepRise(state: GameState, id: string): number {
+  const t = tier(state, id) + 1;
+  return t <= 2 ? UPKEEP_PER_TIER : UPKEEP_PER_LATE_TIER;
+}
+
 // Radio lines from the facilities you own, heard from the tier that earns them.
 export function facilityLines(state: GameState): string[] {
   const out: string[] = [];
