@@ -8,6 +8,7 @@ A Backrooms company-management sim for the browser. Design lives in the project'
 - `npm test`: simulation unit tests (Vitest)
 - `npm run build`: type-check and build to `dist/`
 - `npm run shot`: headless play-test, screenshots in `shots/`
+- `npm run artifact`: after a build, writes `dist/artifact.html` for the playable Artifact link
 
 ## Layout
 - `src/sim/`: game rules. Pure TypeScript, no DOM, seeded RNG, fully testable.
