@@ -256,7 +256,10 @@ export function humFlicker(ms: number): void {
   sfx("tick");
 }
 
-type Sfx = "click" | "open" | "close" | "ding" | "tick" | "type" | "memo" | "key" | "return" | "squelch" | "step" | "thump" | "growl" | "call-bell";
+type Sfx =
+  | "click" | "open" | "close" | "ding" | "tick" | "type" | "memo" | "key" | "return" | "squelch" | "step" | "thump" | "growl" | "call-bell"
+  // the office around your desk
+  | "far-steps" | "knock" | "far-ring" | "buzz" | "clunk";
 
 /** pan: -1 (left) to 1 (right). gain: 0..1, scales the cue. Both are optional. */
 export interface SfxOptions {
@@ -338,6 +341,48 @@ function play(kind: Sfx): void {
         bell(t + at, 2349, 0.5, 0.007);
         bell(t + at, 4186, 0.25, 0.003);
       }
+      break;
+    case "far-steps": // someone walking down the hall, slow, getting closer, then not
+      for (let i = 0; i < 7; i++) {
+        const at = t + i * (0.62 + Math.random() * 0.08);
+        const near = 0.3 + i * 0.1;
+        burst(at, 0.09, 120 + Math.random() * 40, 0.16 * near);
+        burst(at + 0.01, 0.025, 600 + Math.random() * 200, 0.025 * near);
+      }
+      break;
+    case "knock": // three knocks on a hollow office door
+      for (const at of [0, 0.32, 0.64]) {
+        burst(t + at, 0.11, 140, 0.5);
+        burst(t + at, 0.03, 420, 0.18);
+      }
+      break;
+    case "far-ring": // a desk phone ringing in an empty cubicle somewhere
+      for (const at of [0, 2.4]) {
+        for (let i = 0; i < 20; i++) {
+          bell(t + at + i * 0.05, 440, 0.06, 0.006);
+          bell(t + at + i * 0.05 + 0.025, 480, 0.06, 0.006);
+        }
+      }
+      break;
+    case "buzz": // a fluorescent tube struggling to start
+      for (let i = 0; i < 5; i++) {
+        const osc = ctx!.createOscillator();
+        osc.type = "sawtooth";
+        osc.frequency.value = 100;
+        const g = ctx!.createGain();
+        const at = t + i * 0.09 + Math.random() * 0.05;
+        g.gain.setValueAtTime(0.02, at);
+        g.gain.exponentialRampToValueAtTime(0.0001, at + 0.07);
+        osc.connect(g).connect(sink ?? master!);
+        osc.start(at);
+        osc.stop(at + 0.08);
+        burst(at, 0.01, 3800, 0.08);
+      }
+      break;
+    case "clunk": // a can drops in the vending machine down the hall
+      burst(t, 0.16, 220, 0.3);
+      burst(t + 0.05, 0.08, 900, 0.08);
+      burst(t + 0.22, 0.1, 260, 0.12);
       break;
     case "memo":
       tone(t, 660, 0.12, 0.05);

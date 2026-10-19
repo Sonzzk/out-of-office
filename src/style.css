@@ -280,3 +280,16 @@ button:focus-visible, .btn:focus-visible, .tb button:focus-visible, .taskbar but
 .lab .benchempty { margin: 4px 0; }
 .handbook .hotkeys { margin: 4px 0; padding-left: 18px; }
 .handbook kbd { font: inherit; border: 1px solid currentColor; padding: 0 5px; }
+
+/* The office around the desk (src/ui/office3d.ts): a dithered render that
+   covers the desktop until you click the monitor. */
+.office { position: fixed; inset: 0; z-index: 9500; background: #000; overflow: hidden; transition: opacity .35s; }
+.office.gone { opacity: 0; }
+.office canvas { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; display: block; outline: none; }
+@media (orientation: portrait) { .office canvas { object-fit: contain; } }
+.office-hint { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); padding: 4px 10px;
+  font: 13px/1.3 "MS Sans Serif", Tahoma, sans-serif; color: #f3ecc0; background: rgba(0,0,0,.55);
+  text-shadow: 1px 1px 0 #000; pointer-events: none; animation: office-hint 3s ease-in-out infinite; }
+@keyframes office-hint { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .office-hint { animation: none; } .office canvas { transition: none !important; } }
+.office .toast { z-index: 2; }

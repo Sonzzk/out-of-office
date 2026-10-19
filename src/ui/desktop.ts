@@ -19,6 +19,7 @@ import { startInfestation } from "./infestation";
 import { startTutorial } from "./tutorial";
 import { isManualPause, onPauseChange, togglePause } from "./pause";
 import { notify, startUncanny } from "./uncanny";
+import { lookUp } from "./office3d";
 import { dialog, initWindows, onWindowsChanged, openApp, openWindows, tileWindows, toggle } from "./windows";
 
 export function mountDesktop(desk: HTMLElement, state: GameState): void {
@@ -36,6 +37,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
         <span class="hide-sm twist-tag" data-twist hidden></span>
         <span class="hide-sm" data-floor hidden><b>FL 2</b></span>
         <span class="hide-sm" data-air hidden><img src="./art/icons/U-infection.png" alt="">Air <b></b></span>
+        <button class="hum hide-sm" data-lookup title="Look up from the screen at the office">Look up</button>
         <button class="hum hide-sm" data-pause></button>
         <button class="hum hide-sm" data-calm></button>
         <button class="hum" data-hum></button>
@@ -78,6 +80,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   };
   for (const app of list) item(app.icon, app.title, () => openApp(app));
   items.appendChild(document.createElement("hr"));
+  item("./art/icons/U-map.png", "Look up at the office", lookUp); // the tray button hides on phones
   item("./art/icons/U-document.png", "Tile windows", tileWindows);
   item("./art/icons/U-document.png", "Copy day summary", async () => {
     const text = daySummary(game());
