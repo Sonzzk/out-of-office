@@ -1,7 +1,7 @@
 /* Palette and bevels come from concept-art/mockup-source-v2.html. */
 :root {
   --hi: #efe9cc; --sh: #6d684f; --dark: #3a3620;
-  --beige: #cfc9ad; --paper: #e4dfc4; --ink: #1d1a0e; --dim: #5c573f;
+  --beige: #cfc9ad; --paper: #e4dfc4; --ink: #1d1a0e; --dim: #4d4934; --tbh: 32px; --tut: 0px; --tut-h: 26px;
   --title: #4b4320; --title2: #2f2a12; --red: #a8321e;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -20,7 +20,7 @@ img { image-rendering: pixelated; }
 .scan { position: absolute; inset: 0; pointer-events: none; z-index: 9001; mix-blend-mode: multiply;
   background: repeating-linear-gradient(0deg, rgba(0,0,0,.12) 0 1px, transparent 1px 3px); }
 
-.work { position: absolute; left: 0; right: 0; top: 0; bottom: 32px; overflow: hidden; }
+.work { position: absolute; left: 0; right: 0; top: 0; bottom: calc(var(--tbh) + var(--tut)); overflow: hidden; }
 .icons { position: absolute; left: 12px; top: 12px; bottom: 8px; display: flex; flex-direction: column;
   flex-wrap: wrap; gap: 10px; align-content: flex-start; }
 .ic { width: 76px; padding: 4px 2px; text-align: center; color: #f3ecc0; text-shadow: 1px 1px 0 #000;
@@ -67,13 +67,13 @@ img { image-rendering: pixelated; }
 .btn:active { border-color: var(--dark) var(--hi) var(--hi) var(--dark); }
 .dim { color: var(--dim); }
 
-.taskbar { position: absolute; left: 0; right: 0; bottom: 0; height: 32px; z-index: 8000; display: flex;
+.taskbar { position: absolute; left: 0; right: 0; bottom: 0; height: var(--tbh); z-index: 8000; display: flex;
   align-items: center; gap: 6px; padding: 3px 4px; background: var(--beige); border-top: 2px solid var(--hi); }
 .taskbar .start { font-weight: bold; min-width: 64px; }
 .taskbar .start.on { border-color: var(--dark) var(--hi) var(--hi) var(--dark); }
 .tray .hum { font: inherit; font-size: 11px; background: none; border: 0; cursor: pointer; color: var(--ink); padding: 0 2px; }
 
-.startmenu { position: absolute; left: 2px; bottom: 32px; z-index: 8500; display: flex; min-width: 220px;
+.startmenu { position: absolute; left: 2px; bottom: var(--tbh); z-index: 8500; display: flex; min-width: 220px;
   background: var(--beige); border: 2px solid; border-color: var(--hi) var(--dark) var(--dark) var(--hi);
   box-shadow: 3px 3px 0 rgba(0,0,0,.45); }
 .startmenu[hidden] { display: none; }
@@ -99,7 +99,7 @@ canvas.map { display: block; width: 100%; height: 100%; background: #0e1208; }
   transition: opacity 25ms linear; }
 .ghost { position: absolute; left: 0; top: 0; z-index: 9003; pointer-events: none; opacity: 0;
   filter: drop-shadow(1px 1px 0 rgba(0,0,0,.4)); }
-.toast { position: absolute; right: 10px; bottom: 44px; z-index: 8600; width: 300px; display: flex; gap: 10px; padding: 10px;
+.toast { position: absolute; right: 10px; bottom: calc(var(--tbh) + var(--tut) + 12px); z-index: 8600; width: 300px; display: flex; gap: 10px; padding: 10px;
   background: #f3efd9; border: 2px solid var(--dark); box-shadow: 3px 3px 0 rgba(0,0,0,.45); cursor: pointer;
   animation: toast-in .25s steps(3); line-height: 1.45; }
 .toast img { width: 32px; height: 32px; flex: none; }
@@ -135,9 +135,11 @@ canvas.map { display: block; width: 100%; height: 100%; background: #0e1208; }
 .boot-card .catch { margin-bottom: 14px; font-style: italic; }
 
 @media (max-width: 640px) {
-  .tutorial { left: 8px; right: 8px; width: auto; }
-  .tray .hide-sm { display: none; }
+  .tray .hide-sm, .tray .wide { display: none; }
+  .tray { gap: 4px; padding: 3px 4px; }
   .ic { width: 64px; }
+  /* Icons wrap into rows so every app, the Handbook included, is on screen. */
+  .icons { flex-direction: row; right: 12px; align-content: flex-start; }
 }
 
 /* Infection glitches (glitch.ts). */
@@ -150,11 +152,15 @@ canvas.map { display: block; width: 100%; height: 100%; background: #0e1208; }
 .handbook { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
 .handbook .opt { display: flex; gap: 8px; align-items: flex-start; padding: 6px 8px; cursor: pointer; }
 
-/* Employee Orientation (tutorial.ts). */
-.tutorial { position: absolute; right: 12px; bottom: 44px; width: 250px; z-index: 8000; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; background: #e9e2b0; }
+/* Employee Orientation (tutorial.ts): a one-line bar docked above the taskbar. The work area
+   shrinks by its height (--tut), so it never covers a window or the Send button. */
+.tutorial { position: absolute; left: 0; right: 0; bottom: var(--tbh); height: var(--tut-h, 26px); z-index: 8000; padding: 0 8px; display: flex;
+  flex-direction: row; align-items: center; gap: 8px; background: #e9e2b0; white-space: nowrap; overflow: hidden; }
 .tutorial[hidden] { display: none; }
-.tutorial .ttl { font-weight: bold; }
-.tutorial .btn { align-self: flex-end; margin-top: 2px; }
+.tutorial b, .tutorial .btn { flex: none; }
+.tutorial .ttl { font-weight: bold; flex: none; }
+.tutorial .dim { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tutorial .btn { padding: 0 8px; margin-left: auto; }
 .ic.tut-hint { animation: tut-pulse 1.4s ease-in-out infinite; border-color: #f3ecc0; }
 @keyframes tut-pulse { 50% { box-shadow: 0 0 0 4px rgba(243, 236, 192, 0.55); } }
 @media (prefers-reduced-motion: reduce) { .ic.tut-hint { animation: none; box-shadow: 0 0 0 3px rgba(243, 236, 192, 0.7); } }
@@ -192,3 +198,68 @@ button:focus-visible, .btn:focus-visible, .tb button:focus-visible, .taskbar but
 .camdot { display: inline-block; width: 6px; height: 6px; margin-right: 3px; border-radius: 50%; background: #c00; animation: camblink 2s steps(1) infinite; }
 @keyframes camblink { 50% { opacity: 0.2; } }
 .btn.clip { display: block; margin: -2px 0 6px auto; font-size: 11px; }
+
+/* --- Accessibility, phones and small screens ------------------------------ */
+.tray .hum { min-height: 0; }
+.pausebar { position: fixed; top: 6px; left: 50%; translate: -50% 0; z-index: 9500; display: flex; gap: 10px; align-items: center;
+  padding: 6px 12px; background: #f3efd9; color: var(--ink); border: 2px solid var(--dark); box-shadow: 3px 3px 0 rgba(0,0,0,.45); }
+.pausebar[hidden] { display: none; }
+.pausebar b { letter-spacing: .1em; color: var(--red); }
+
+/* One-line orientation chip on narrow screens: the title and the skip button. */
+@media (max-width: 640px) {
+  .tutorial b, .tutorial .dim { display: none; }
+  .tutorial .ttl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  /* Feeds Wall: one column of 16:10 tiles, labels clear of the camera text. */
+  .feeds .wall, .feeds .wall.n2, .feeds .wall.n3, .feeds .wall.n4, .feeds .wall.n5, .feeds .wall.n6 { grid-template-columns: 1fr; }
+  .feeds .tile canvas { aspect-ratio: 16 / 10; }
+  /* The operator and the state sit in a caption under the picture, clear of the camera text. */
+  .feeds .wall .tile { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding-bottom: 4px; }
+  .feeds .wall .tile canvas { flex: none; }
+  .feeds .wall .tile .lbl, .feeds .wall .tile .state { position: static; font-size: 12px; }
+  .feeds .wall .tile .state { margin-left: auto; padding-right: 6px; }
+  .feeds .wall .tile .lbl { padding-left: 6px; }
+  .feeds .detail .opts { flex-wrap: wrap; }
+  .inbox .list { max-height: 42vh; }
+}
+
+/* Touch targets: 44px minimum for the window chrome and the taskbar. */
+@media (pointer: coarse) {
+  :root { --tbh: 48px; --tut-h: 44px; }
+  .tb { height: 44px; }
+  .tb button { width: 44px; height: 44px; font-size: 14px; }
+  .taskbar { gap: 4px; padding: 2px 4px; }
+  .taskbar .start { min-width: 64px; min-height: 44px; }
+  .taskbar .tasks .btn { min-height: 44px; }
+  .tray .hum { min-width: 44px; min-height: 44px; }
+  .tutorial .btn { min-height: 36px; }
+  .startmenu .items button { min-height: 44px; }
+}
+
+/* High contrast: black on white, hard edges, no texture. */
+:root[data-contrast="high"] {
+  --hi: #ffffff; --sh: #000000; --dark: #000000; --beige: #ffffff; --paper: #ffffff; --ink: #000000; --dim: #222222;
+  --title: #000000; --title2: #000000; --red: #b00000;
+}
+:root[data-contrast="high"] #desk { background: #202020; }
+:root[data-contrast="high"] #desk::after, :root[data-contrast="high"] .scan { display: none; }
+:root[data-contrast="high"] .win { border-color: #000; box-shadow: none; outline: 2px solid #fff; }
+:root[data-contrast="high"] .tb, :root[data-contrast="high"] .win.active .tb { background: #000; color: #fff; }
+:root[data-contrast="high"] .win:not(.active) .tb { background: #444; }
+:root[data-contrast="high"] .ic { color: #fff; text-shadow: none; background: #000; }
+:root[data-contrast="high"] .tutorial, :root[data-contrast="high"] .toast { background: #fff; border-color: #000; }
+:root[data-contrast="high"] .btn.go { background: #000; color: #fff; }
+:root[data-contrast="high"] .inbox .msg.on { background: #000; color: #fff; }
+
+/* Reduce motion and flicker: nothing blinks, tears or ghosts. */
+:root[data-motion="reduced"] *, :root[data-motion="reduced"] *::before, :root[data-motion="reduced"] *::after {
+  animation: none !important; transition: none !important; }
+:root[data-motion="reduced"] .veil, :root[data-motion="reduced"] .ghost, :root[data-motion="reduced"] .tear { display: none !important; }
+:root[data-motion="reduced"] .win.fringe { filter: none !important; }
+
+/* Interface size: the whole desktop is zoomed and given the room that is left. */
+:root[data-scale="125"] #desk { zoom: 1.25; }
+:root[data-scale="150"] #desk { zoom: 1.5; }
+
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.feeds .btn.clip { margin: 0 0 0 auto; }

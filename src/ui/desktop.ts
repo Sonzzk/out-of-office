@@ -17,6 +17,7 @@ import { startFourthWall } from "./fourthwall";
 import { startGlitch } from "./glitch";
 import { startInfestation } from "./infestation";
 import { startTutorial } from "./tutorial";
+import { isManualPause, onPauseChange, togglePause } from "./pause";
 import { notify, startUncanny } from "./uncanny";
 import { dialog, initWindows, onWindowsChanged, openApp, openWindows, toggle } from "./windows";
 
@@ -24,18 +25,19 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   const list = apps(state);
   desk.innerHTML = `
     <div class="work"><div class="icons"></div></div>
-    <div class="startmenu" hidden><div class="side">OUT OF OFFICE</div><div class="items"></div></div>
+    <div class="startmenu" hidden><div class="side">OUT OF OFFICE</div><div class="items" role="menu" aria-label="Start"></div></div>
     <div class="taskbar">
-      <button class="btn start" aria-haspopup="menu">Start</button>
+      <button class="btn start" aria-haspopup="menu" aria-expanded="false">Start</button>
       <div class="tasks"></div>
       <div class="tray inset">
-        <span class="hide-sm"><img src="./art/icons/U-cash.png" alt=""><b data-cash></b></span>
-        <span class="hide-sm"><img src="./art/icons/U-heat.png" alt="">Heat <b data-heat></b></span>
+        <span title="Cash"><img src="./art/icons/U-cash.png" alt=""><b data-cash></b></span>
+        <span title="Heat"><img src="./art/icons/U-heat.png" alt=""><span class="wide">Heat </span><b data-heat></b></span>
         <span class="hide-sm fac" data-fac hidden></span>
         <span class="hide-sm twist-tag" data-twist hidden></span>
         <span class="hide-sm" data-floor hidden><b>FL 2</b></span>
         <span class="hide-sm" data-air hidden><img src="./art/icons/U-infection.png" alt="">Air <b></b></span>
-        <button class="hum" data-calm></button>
+        <button class="hum hide-sm" data-pause></button>
+        <button class="hum hide-sm" data-calm></button>
         <button class="hum" data-hum></button>
         <span><b data-clock></b></span>
       </div>
@@ -64,6 +66,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   const items = menu.querySelector(".items")!;
   const item = (icon: string, label: string, run: () => void) => {
     const b = document.createElement("button");
+    b.setAttribute("role", "menuitem");
     b.innerHTML = `<img alt=""><span></span>`;
     b.querySelector("img")!.src = icon;
     b.querySelector("span")!.textContent = label;
@@ -96,10 +99,33 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   const setMenu = (on: boolean) => {
     menu.hidden = !on;
     start.classList.toggle("on", on);
+    start.setAttribute("aria-expanded", String(on));
   };
+  // Escape, a resize and the arrow keys; an outside click is handled below.
+  const entries = () => Array.from(items.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+  window.addEventListener(
+    "keydown",
+    (e) => {
+      if (menu.hidden) return;
+      if (e.key === "Escape") {
+        e.stopPropagation(); // the menu closes before any window does
+        setMenu(false);
+        start.focus();
+      } else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) {
+        e.preventDefault();
+        const all = entries();
+        const at = all.indexOf(document.activeElement as HTMLButtonElement);
+        const next = e.key === "Home" ? 0 : e.key === "End" ? all.length - 1 : (at + (e.key === "ArrowDown" ? 1 : -1) + all.length) % all.length;
+        all[next]?.focus();
+      }
+    },
+    true,
+  );
+  window.addEventListener("resize", () => setMenu(false));
   start.addEventListener("click", (e) => {
     e.stopPropagation();
     setMenu(menu.hidden);
+    if (!menu.hidden && e.detail === 0) entries()[0]?.focus(); // opened from the keyboard
   });
   desk.addEventListener("pointerdown", (e) => {
     if (!menu.hidden && !menu.contains(e.target as Node) && e.target !== start) setMenu(false);
@@ -144,6 +170,15 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   });
   showCalm();
   addEventListener("ooo-calm", () => { refreshCalm(); showCalm(); }); // the Handbook can change it too
+
+  const pauseBtn = desk.querySelector<HTMLButtonElement>("[data-pause]")!;
+  const showPause = () => {
+    pauseBtn.textContent = isManualPause() ? "|| on" : "|| pause";
+    pauseBtn.title = isManualPause() ? "Resume the runs (P)" : "Pause the runs (P)";
+  };
+  pauseBtn.addEventListener("click", togglePause);
+  onPauseChange(showPause);
+  showPause();
 
   const hum = desk.querySelector<HTMLButtonElement>("[data-hum]")!;
   const showHum = () => {
