@@ -308,7 +308,8 @@ const onKey = (e: KeyboardEvent) => {
   } else keys.delete(k);
 };
 const onMouse = (e: MouseEvent) => {
-  if (!running || document.pointerLockElement !== renderer?.domElement) return;
+  // Mouse look when the pointer is captured; otherwise (e.g. an embed that blocks pointer lock) drag to look.
+  if (!running || (document.pointerLockElement !== renderer?.domElement && !(e.buttons & 1 && e.target === renderer?.domElement))) return;
   yaw -= e.movementX * 0.0025;
   pitch = Math.max(-1.2, Math.min(1.2, pitch - e.movementY * 0.0025));
 };
@@ -361,7 +362,7 @@ export async function startWalk(parent: HTMLElement, h: WalkHooks): Promise<void
   host = document.createElement("div");
   host.className = "walk";
   host.innerHTML = `<div class="walk-hint" hidden></div><div class="walk-stick" hidden></div>
-    <div class="walk-help">${matchMedia("(pointer: coarse)").matches ? "Left thumb: walk · Right thumb: look" : "Click to look around · WASD to walk · Esc to sit back down"}</div>`;
+    <div class="walk-help">${matchMedia("(pointer: coarse)").matches ? "Left thumb: walk · Right thumb: look" : "Click or drag to look around · WASD to walk · Esc to sit back down"}</div>`;
   host.prepend(renderer.domElement);
   renderer.domElement.setAttribute("aria-label", "The office, walking. Walk back to your desk to sit down.");
   hint = host.querySelector(".walk-hint")!;
