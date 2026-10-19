@@ -19,7 +19,7 @@ if (await page.locator("#ob-name").count()) {
 }
 await page.waitForSelector("#desk .ic");
 await page.click('[data-open="hr"]');
-for (let i = 0; i < 3; i++) await page.locator("[data-hire]:not([disabled])").first().click();
+for (let i = 0; i < 3; i++) { await page.locator('[data-fold][aria-expanded="false"]').first().click({ timeout: 400 }).catch(() => {}); await page.locator("[data-hire]:not([disabled])").first().click(); }
 await page.evaluate(() => {
   const s = JSON.parse(localStorage.getItem("out-of-office.save"));
   s.cash = 4000;

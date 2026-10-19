@@ -21,7 +21,7 @@ if (await page.locator("#ob-name").count()) {
 }
 await page.waitForSelector("#desk .ic");
 await page.click('[data-open="hr"]');
-await page.locator("[data-hire]:not([disabled])").first().click();
+await page.locator('[data-fold][aria-expanded="false"]').first().click({ timeout: 400 }).catch(() => {}); await page.locator("[data-hire]:not([disabled])").first().click();
 
 // Jump ahead: the office is badly infected.
 await page.evaluate(() => {
