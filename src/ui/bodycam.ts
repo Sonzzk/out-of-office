@@ -43,6 +43,75 @@ function image(src: string): HTMLImageElement {
   return img;
 }
 
+// The way out: a freight portal with a hazard frame and a humming teal opening.
+// A few frames so the opening shimmers.
+let portalSrc: string[] | null = null;
+function portalFrames(): string[] {
+  if (portalSrc) return portalSrc;
+  portalSrc = [];
+  for (let f = 0; f < 4; f++) {
+    const c = document.createElement("canvas");
+    c.width = 96;
+    c.height = 128;
+    const g = c.getContext("2d")!;
+    g.fillStyle = "#3a3f44";
+    g.fillRect(6, 8, 84, 120);
+    g.fillStyle = "#12161a";
+    g.fillRect(14, 22, 68, 106);
+    const grad = g.createLinearGradient(0, 22, 0, 128);
+    grad.addColorStop(0, "#c8fbf2");
+    grad.addColorStop(0.5, "#5fd6c8");
+    grad.addColorStop(1, "#1f7a74");
+    g.fillStyle = grad;
+    g.fillRect(16, 24, 64, 104);
+    for (let y = 24 + ((f * 7) % 14); y < 128; y += 14) {
+      g.fillStyle = "rgba(255,255,255,0.3)";
+      g.fillRect(16, y, 64, 3);
+    }
+    // Hazard stripes on the lintel and both posts.
+    const stripes = (x: number, y: number, w: number, h: number, vertical: boolean) => {
+      g.save();
+      g.beginPath();
+      g.rect(x, y, w, h);
+      g.clip();
+      g.fillStyle = "#e0b81c";
+      g.fillRect(x, y, w, h);
+      g.fillStyle = "#16181a";
+      const span = vertical ? h : w;
+      for (let k = -12; k < span + 12; k += 12) {
+        g.beginPath();
+        if (vertical) {
+          g.moveTo(x, y + k);
+          g.lineTo(x + w, y + k - 6);
+          g.lineTo(x + w, y + k);
+          g.lineTo(x, y + k + 6);
+        } else {
+          g.moveTo(x + k, y + h);
+          g.lineTo(x + k + 6, y + h);
+          g.lineTo(x + k + 12, y);
+          g.lineTo(x + k + 6, y);
+        }
+        g.fill();
+      }
+      g.restore();
+    };
+    stripes(6, 8, 84, 14, false);
+    stripes(6, 22, 8, 106, true);
+    stripes(82, 22, 8, 106, true);
+    // A lamp bar and a little EXIT box above the door.
+    g.fillStyle = f % 2 ? "#ff7a3a" : "#ffc15a";
+    g.fillRect(40, 1, 16, 5);
+    g.fillStyle = "#0e1a12";
+    g.fillRect(34, 10, 28, 10);
+    g.fillStyle = "#3dd67a";
+    g.fillRect(36, 12, 24, 6);
+    g.fillStyle = "#0e1a12";
+    for (let k = 0; k < 4; k++) g.fillRect(38 + k * 6, 13, 3, 4);
+    portalSrc.push(c.toDataURL());
+  }
+  return portalSrc;
+}
+
 const hash = (a: number, b: number, c = 0) => {
   let h = (a * 374761393 + b * 668265263 + c * 2147483647) | 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -564,6 +633,8 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput, opts: 
   let headHold = 0;
   let glance = 0;
   let glanceUntil = 0;
+  let gaze = 0; // standing still: the offset toward the longest open stretch
+  let nextGaze = 0;
   let nextGlance = performance.now() + 2500;
   let lastFrame = performance.now();
   let holdUntil = 0;
@@ -626,23 +697,51 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput, opts: 
     lastFrame = now;
     const nervy = 1 + danger * 1.5 + input.infection / 60;
 
-    // A head, not a turret. It reacts a beat late, turns at a human speed,
-    // and every few seconds jerks to look at something that may not be there.
-    if (Math.abs(rotate(target - heading)) > 0.3 && now > headHold) {
+    // A head on a walking body. Walking, it faces where it is going and swings
+    // into corners before the body gets there; standing, it looks down the
+    // longest open stretch instead of at a wall; glances go toward open space.
+    const open = (a: number, from: Pt = { x: px0, y: py0 }) => {
+      for (let d = 0.3; d < 6; d += 0.3) {
+        const cx = Math.floor(from.x + Math.cos(a) * d);
+        const cy = Math.floor(from.y + Math.sin(a) * d);
+        if (cx < 0 || cy < 0 || cx >= lv.w || cy >= lv.h || lv.cells[cy * lv.w + cx] === WALL) return d;
+      }
+      return 6;
+    };
+    if (moving) {
+      turning = false;
+      heading = target;
+    } else if (Math.abs(rotate(target - heading)) > 0.3 && now > headHold) {
       if (!turning) {
         turning = true;
-        headHold = now + 150 + Math.random() * 250; // the pause before the turn
+        headHold = now + 120 + Math.random() * 180; // the pause before the turn
       } else {
         turning = false;
         heading = target;
       }
     }
     if (Math.abs(rotate(target - heading)) <= 0.3) heading = target;
+    if (!moving && !done && now > nextGaze) {
+      nextGaze = now + 1600 + Math.random() * 1400;
+      let best = 0;
+      let bestD = open(heading) + 0.4; // staying put wins a close call
+      for (const o of [-1.2, -0.8, -0.4, 0.4, 0.8, 1.2]) {
+        const d = open(heading + o);
+        if (d > bestD) {
+          bestD = d;
+          best = o;
+        }
+      }
+      gaze = best;
+    }
     if (!done && now > nextGlance) {
-      const behind = Math.random() < 0.18;
-      glance = (Math.random() < 0.5 ? -1 : 1) * (behind ? 2.5 : 0.6 + Math.random() * 0.9);
-      glanceUntil = now + 450 + Math.random() * 700;
-      nextGlance = glanceUntil + (2200 + Math.random() * 4500) / nervy;
+      const behind = !moving && Math.random() < 0.15;
+      const side = open(heading - 0.7) > open(heading + 0.7) ? -1 : 1;
+      if (behind) glance = (Math.random() < 0.5 ? -1 : 1) * 2.5;
+      else if (open(heading + side * 0.7) > 2) glance = side * (moving ? 0.25 + Math.random() * 0.2 : 0.5 + Math.random() * 0.5);
+      else glance = 0;
+      glanceUntil = now + 450 + Math.random() * 600;
+      nextGlance = glanceUntil + (2600 + Math.random() * 4500) / nervy;
     }
     // A threat has the whole head turned to it.
     if (exp.threat && !done) {
@@ -654,13 +753,14 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput, opts: 
       }
     }
     const looking = now < glanceUntil;
-    const drift = moving || done ? 0 : Math.sin(now / 1300) * 0.25;
+    const sway = moving || done ? Math.sin(now / 700) * 0.03 : Math.sin(now / 1300) * 0.08;
     const shake = Math.sin(now / 37) * 0.006 + Math.sin(now / 91) * 0.01;
-    const desired = (turning ? angle : heading) + (looking ? glance : 0) + drift;
+    const desired = (turning ? angle : heading) + (moving || done ? 0 : gaze) + (looking ? glance : 0) + sway;
     const diff = rotate(desired - angle);
-    const maxRate = looking && Math.abs(diff) > 0.2 ? 4.2 : 1.35; // a flick out, a slow return
-    const stepA = Math.max(-maxRate * dt, Math.min(maxRate * dt, diff * (1 - Math.exp(-5 * dt))));
+    const maxRate = looking && Math.abs(diff) > 0.2 ? 4.2 : moving ? 3.4 : 1.6; // a flick out, a swing into the corner, a slow settle
+    const stepA = Math.max(-maxRate * dt, Math.min(maxRate * dt, diff * (1 - Math.exp(-7 * dt))));
     angle = rotate(angle + stepA);
+    canvas.dataset.cam = `${angle.toFixed(3)} ${open(angle).toFixed(1)} ${moving ? 1 : 0}`; // for play-tests: where it looks, how far it can see, walking
     if (moving) stepPhase += 0.2;
     const bob = (moving ? Math.sin(stepPhase * 2.2) * 1.6 : Math.sin(now / 1400) * 0.4) + shake * 40;
     const horizon = H / 2 + bob;
@@ -774,7 +874,7 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput, opts: 
     bctx.putImageData(frame, 0, 0);
 
     // Sprites: entities and loot that are in sight, far to near.
-    type Spr = { x: number; y: number; src: string; scale: number; lift: number; thing: "entity" | "loot" | "crew"; wob: number };
+    type Spr = { x: number; y: number; src: string; scale: number; lift: number; thing: "entity" | "loot" | "crew" | "portal"; wob: number };
     const sprites: Spr[] = [];
     danger = exp.threat ? 1 : 0;
     if (!done) {
@@ -818,6 +918,7 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput, opts: 
       lastBeat = now;
       sfx("thump");
     }
+    sprites.push({ x: lv.entrance.x + 0.5, y: lv.entrance.y + 0.5, src: portalFrames()[Math.floor(now / 140) % 4], scale: 1.05, lift: 0, thing: "portal", wob: 0 });
     const det = planeX * dirY - dirX * planeY;
     sprites
       .map((s) => ({ s, d: (s.x - px0) ** 2 + (s.y - py0) ** 2 }))
@@ -843,7 +944,7 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput, opts: 
         tctx.clearRect(0, 0, sw, size);
         tctx.drawImage(img, 0, 0, sw, size);
         tctx.globalCompositeOperation = "source-atop";
-        tctx.fillStyle = `rgba(8,6,0,${s.thing === "crew" ? Math.min(0.95, 0.62 + ty / FAR) : Math.min(0.92, ty / FAR + 0.15)})`;
+        tctx.fillStyle = `rgba(8,6,0,${s.thing === "portal" ? Math.min(0.5, ty / FAR * 0.6) : s.thing === "crew" ? Math.min(0.95, 0.62 + ty / FAR) : Math.min(0.92, ty / FAR + 0.15)})`;
         tctx.fillRect(0, 0, sw, size);
         tctx.globalCompositeOperation = "source-over";
         for (let c = 0; c < sw; c++) {
