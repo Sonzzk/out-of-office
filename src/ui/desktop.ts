@@ -2,7 +2,7 @@ import { tutorialActive } from "../sim/tutorial";
 import type { GameState } from "../sim/state";
 import { game, onChange } from "../store";
 import { apps } from "./apps";
-import { isCalm, isMuted, setCalm, setMuted, sfx } from "./audio";
+import { isCalm, isMuted, setAmbience, setCalm, setInfectionPulse, setMuted, sfx } from "./audio";
 import { refreshCalm } from "./uncanny";
 import { has } from "../sim/projects";
 import { benches, tier } from "../sim/facilities";
@@ -237,6 +237,26 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
       if (m.event && m.event.choice === undefined) notify(desk, "./art/icons/U-envelope.png", `New memo: ${m.from.split(",")[0]}`, `${m.subject}. Needs your answer in the Memo Inbox.`);
     }
   });
+
+  // The sound follows the game: the ambience of the first running expedition's
+  // level, a heartbeat once the air turns, and a bell when a crew needs an answer.
+  const rung = new Set<string>();
+  const ring = (first: boolean) => {
+    const s = game();
+    const run = s.expeditions.filter((e) => e.phase !== "done");
+    setAmbience(run[0]?.levelId ?? null);
+    setInfectionPulse(Math.max(0, (s.infection - 20) / 80)); // the air meter appears at 20
+    for (const e of run) {
+      for (const [kind, ask] of [["call", e.call], ["threat", e.threat]] as const) {
+        const key = `${e.id}:${kind}:${ask?.id}:${ask?.asked}`;
+        if (!ask || rung.has(key)) continue;
+        rung.add(key);
+        if (!first) sfx("call-bell");
+      }
+    }
+  };
+  ring(true); // a call already waiting in a loaded save does not ring again
+  onChange(() => ring(false), ["all", "tick"]);
 
   // A new hire gets a clean desktop and one pulsing icon. Everyone else gets the inbox and the map back.
   if (!tutorialActive(state) && desk.clientWidth > 640) {
