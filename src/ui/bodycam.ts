@@ -784,7 +784,7 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput, opts: 
         if (d < 10 && los(lv, p, r.pos)) {
           if (!spotted.has(r.id)) {
             spotted.add(r.id);
-            sfx("growl");
+            sfx("growl", { pan: Math.max(-1, Math.min(1, (r.pos.x - p.x) / 10)), gain: Math.max(0, Math.min(1, 1 - d / 10)) });
           }
           sprites.push({ x: r.pos.x + 0.5, y: r.pos.y + 0.5, src: `./art/entities/${entityDef(r.id).art}`, scale: 0.95, lift: 0, thing: "entity", wob: hash(r.pos.x, r.pos.y) });
         }
