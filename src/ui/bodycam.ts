@@ -962,7 +962,7 @@ export function createBodycam(canvas: HTMLCanvasElement, first: CamInput, opts: 
     const clock = `L${input.depth}  T+${String(Math.floor(secs / 60)).padStart(2, "0")}:${String(secs % 60).padStart(2, "0")}`;
     text(clock, 10, OUT_H - 20);
     text(cut ? "YOUR OFFICE" : input.levelName.toUpperCase().slice(0, 18), OUT_W - 10, OUT_H - 20, "right");
-    if (exp.call) text("AWAITING ORDERS", OUT_W / 2, 26, "center");
+    if (exp.call && Math.floor(now / 500) % 2 === 0) text("AWAITING ORDERS", OUT_W / 2, 8, "center"); // a line in the top strip, not over the picture
     if (done) {
       out.fillStyle = "rgba(0,0,0,0.35)";
       out.fillRect(0, 0, OUT_W, OUT_H);

@@ -5,22 +5,27 @@ import { isPrivate, isStreamer, setPrivacy, setStreamer } from "../privacy";
 import { game, update } from "../store";
 import { esc } from "./dom";
 import { getVolume, isCalm, setCalm, setVolume } from "./audio";
+import { renderGuide } from "./guide";
 import { refreshCalm } from "./uncanny";
+import { access, SCALES, setAccess, type Relaxed } from "../access";
+import { togglePause } from "./pause";
 import { dialog } from "./windows";
 
 // The Employee Handbook: sound, privacy, your save file and the credits.
 export function renderHandbook(body: HTMLElement): void {
   body.classList.add("handbook");
+  const pane = tabs(body);
   const paint = () => {
-    body.innerHTML = `
+    pane.innerHTML = `
       <p class="dim">Employee Handbook. Nothing here ever leaves this browser.</p>
       <h4>1. Sound</h4>
       <label class="row"><span>Volume</span><input type="range" min="0" max="100" value="${Math.round(getVolume() * 100)}" data-vol aria-label="Volume"></label>
       <label class="opt inset"><input type="checkbox" data-opt="calm" ${isCalm() ? "checked" : ""}>
         <span><b>Calm mode</b><br><span class="dim">Keeps the sound and the glitches at their gentlest.</span></span></label>
+      ${accessibilitySection()}
       <h4>2. Your privacy</h4>
       <label class="opt inset"><input type="checkbox" data-opt="privacy" ${isPrivate() ? "checked" : ""} ${isStreamer() ? "disabled" : ""}>
-        <span><b>Employee privacy</b><br><span class="dim">On: the office knows nothing about the real world. Off: it may notice your local time and how long you have been at your desk.</span></span></label>
+        <span><b>Employee privacy</b><br><span class="dim">On: the office knows nothing about the real world. Off: it may notice your local time and how long you have been at your desk.</span>${isStreamer() ? `<br><span class="dim privacy-note">Locked on while Streamer mode is on. Turn Streamer mode off to change it.</span>` : ""}</span></label>
       <label class="opt inset"><input type="checkbox" data-opt="streamer" ${isStreamer() ? "checked" : ""}>
         <span><b>Streamer mode</b><br><span class="dim">Hides the name you signed with, keeps privacy on and tones the scares down.</span></span></label>
       <h4>3. Your file</h4>
@@ -58,7 +63,77 @@ export function renderHandbook(body: HTMLElement): void {
     if (t.closest("[data-import]")) body.querySelector<HTMLInputElement>("[data-file]")!.click();
     if (t.closest("[data-reset]")) void reset();
   });
+  bindAccessibility(body);
   paint();
+}
+
+// Guide and Settings are two tabs of one window. Start > Help opens the Guide.
+let showTab: ((tab: "guide" | "settings") => void) | null = null;
+let tabHost: HTMLElement | null = null;
+let wantGuide = false;
+export function openGuideTab(): void {
+  if (tabHost?.isConnected) showTab?.("guide"); // the window is open already
+  else wantGuide = true; // it is about to open
+}
+
+// Returns the element the settings page paints into.
+function tabs(body: HTMLElement): HTMLElement {
+  body.innerHTML = `<div class="hb-tabs" role="tablist"><button class="tab" role="tab" data-hbtab="guide">Guide</button><button class="tab" role="tab" data-hbtab="settings">Settings</button></div>
+    <div class="hb-pane" data-pane="guide" hidden></div><div class="hb-pane" data-pane="settings"></div>`;
+  const guide = body.querySelector<HTMLElement>('[data-pane="guide"]')!;
+  const settings = body.querySelector<HTMLElement>('[data-pane="settings"]')!;
+  renderGuide(guide);
+  const show = (tab: "guide" | "settings") => {
+    guide.hidden = tab !== "guide";
+    settings.hidden = tab !== "settings";
+    body.querySelectorAll<HTMLElement>("[data-hbtab]").forEach((b) => {
+      b.classList.toggle("on", b.dataset.hbtab === tab);
+      b.setAttribute("aria-selected", String(b.dataset.hbtab === tab));
+    });
+  };
+  body.querySelector(".hb-tabs")!.addEventListener("click", (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>("[data-hbtab]");
+    if (b) show(b.dataset.hbtab as "guide" | "settings");
+  });
+  showTab = show;
+  tabHost = body;
+  show(wantGuide ? "guide" : "settings");
+  wantGuide = false;
+  return settings;
+}
+
+// Accessibility: text size, contrast, motion, and how long the office has to answer.
+// TODO(audio): separate SFX and hum sliders need a second gain node in
+// src/ui/audio.ts (it only has a master volume and a mute today).
+function accessibilitySection(): string {
+  const a = access();
+  const opt = (name: string, on: boolean, title: string, text: string) =>
+    `<label class="opt inset"><input type="checkbox" data-acc="${name}" ${on ? "checked" : ""}><span><b>${title}</b><br><span class="dim">${text}</span></span></label>`;
+  return `<h4>Accessibility</h4>
+      <label class="row"><span>Interface size</span><select data-acc="scale" aria-label="Interface size">${SCALES.map((n) => `<option value="${n}" ${a.scale === n ? "selected" : ""}>${n}%</option>`).join("")}</select></label>
+      ${opt("contrast", a.contrast, "High contrast", "Black text on white, hard edges, no texture.")}
+      ${opt("reduceMotion", a.reduceMotion, "Reduce motion and flicker", "No flicker, tearing, ghosts or blinking. Starts on if your system asks for less motion.")}
+      <label class="row"><span>Relaxed timers</span><select data-acc="relaxed" aria-label="Relaxed timers">
+        <option value="off" ${a.relaxed === "off" ? "selected" : ""}>Off</option>
+        <option value="x3" ${a.relaxed === "x3" ? "selected" : ""}>Three times as long</option>
+        <option value="wait" ${a.relaxed === "wait" ? "selected" : ""}>Wait for my answer</option></select></label>
+      <span class="dim">Calls and contacts on a run wait this long. With "wait", the crew holds until you answer.</span>
+      ${opt("pauseHidden", a.pauseHidden, "Pause when this tab is hidden", "Runs hold still while you are on another tab. The P key pauses and resumes any time.")}
+      <div class="row"><button class="btn" data-acc-pause>Pause or resume runs</button></div>`;
+}
+
+function bindAccessibility(body: HTMLElement): void {
+  body.addEventListener("change", (e) => {
+    const t = e.target as HTMLInputElement | HTMLSelectElement;
+    const k = t.dataset.acc;
+    if (!k) return;
+    if (k === "scale") setAccess({ scale: Number(t.value) });
+    else if (k === "relaxed") setAccess({ relaxed: t.value as Relaxed });
+    else setAccess({ [k]: (t as HTMLInputElement).checked });
+  });
+  body.addEventListener("click", (e) => {
+    if ((e.target as HTMLElement).closest("[data-acc-pause]")) togglePause();
+  });
 }
 
 function download(): void {

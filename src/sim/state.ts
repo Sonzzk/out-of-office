@@ -1,5 +1,6 @@
 import { FIRST, SECOND, SUFFIX } from "../data/companyWords";
 import { WELCOME } from "../data/memos";
+import { foldIntoDigest, memoTag } from "./digest";
 import type { Worker } from "./crew";
 import { generatePool } from "./crew";
 import type { Expedition } from "./expedition";
@@ -18,6 +19,8 @@ export interface LedgerEntry {
   amount: number;
 }
 
+export type MemoTag = "digest" | "goal";
+
 export interface Memo {
   id: number;
   from: string;
@@ -25,6 +28,7 @@ export interface Memo {
   body: string;
   day: number;
   read: boolean;
+  tag?: MemoTag; // set on memos that merge or replace each other
   event?: { id: string; vars: Record<string, string | number>; choice?: number; result?: string }; // a memo that asks for a decision
 }
 
@@ -74,6 +78,7 @@ export interface GameState {
   act?: number; // story act: 1 The Job, 2 The Cost, 3 The Exit, 4 new quarter (see sim/story.ts)
   ending?: string; // set while an ending is on screen; cleared when the new quarter starts
   endings?: string[]; // every ending reached so far
+  endingCrew?: { present: string[]; missing: string[] }; // who walked into the farmhouse, and who did not
   storyFlags?: Record<string, number>; // story beats sent, strange memos answered, Derek, quarter
 }
 
@@ -156,14 +161,15 @@ export function addMemo(state: GameState, memo: { from: string; subject: string;
   // {company} and {boss} stay in the text and are filled when the memo is shown,
   // because both can change during onboarding.
   const vars = { day: state.day };
-  state.memos.unshift({
-    id: state.nextId++,
-    from: memo.from,
-    subject: fill(memo.subject, vars),
-    body: fill(memo.body, vars),
-    day: state.day,
-    read: false,
-  });
+  const filled = { from: memo.from, subject: fill(memo.subject, vars), body: fill(memo.body, vars) };
+  // Routine memos fold into one daily digest.
+  const digest = foldIntoDigest(state, filled);
+  if (digest.folded) return;
+  const tag = memoTag(filled);
+  if (tag) state.memos = state.memos.filter((m) => m.tag !== tag); // the old goal is obsolete
+  state.memos.unshift(
+    digest.memo ?? { id: state.nextId++, ...filled, day: state.day, read: false, ...(tag ? { tag } : {}) },
+  );
 }
 
 export function newGame(seed: number, bossName = "Boss"): GameState {

@@ -6,6 +6,8 @@ import { game, update, watch } from "../store";
 import { esc } from "./dom";
 import { createBodycam, type Bodycam, type CamInput } from "./bodycam";
 import { scrub } from "../privacy";
+import { tapWord } from "../access";
+import { attachClip } from "./clip";
 
 // Feeds Wall: one live body cam per crew that is out, side by side. A tile
 // flashes when its crew is waiting for a word, and clicking it lets you answer
@@ -14,6 +16,12 @@ export function renderFeeds(body: HTMLElement): void {
   body.classList.add("feeds");
   const tiles = new Map<number, { cam: Bodycam; canvas: HTMLCanvasElement }>();
   let focus: number | null = null;
+  let stopClip = () => {};
+  // Calls and contacts are read out for screen readers, once each.
+  const live = document.createElement("div");
+  live.className = "sr";
+  live.setAttribute("role", "alert");
+  const told = new Map<number, string>();
   let shownKey = "";
   let replay: { exp: Expedition; i: number; timer: number; cam?: Bodycam } | null = null;
 
@@ -98,11 +106,17 @@ export function renderFeeds(body: HTMLElement): void {
     if (key !== shownKey) {
       shownKey = key;
       tiles.clear();
+      stopClip();
+      stopClip = () => {};
       body.innerHTML = layout(runs);
+      body.appendChild(live);
       for (const exp of runs) {
         const canvas = body.querySelector<HTMLCanvasElement>(`.tile[data-run="${exp.id}"] canvas`)!;
         tiles.set(exp.id, { canvas, cam: createBodycam(canvas, camInput(exp), { fps: focus === exp.id ? 30 : 12 }) });
       }
+      const clipBtn = body.querySelector<HTMLButtonElement>("[data-clip]");
+      const focused = focus === null ? undefined : tiles.get(focus);
+      if (clipBtn && focused) stopClip = attachClip(focused.canvas, clipBtn);
       if (replay) {
         const canvas = body.querySelector<HTMLCanvasElement>(".tile.replay canvas");
         if (canvas) {
@@ -118,6 +132,13 @@ export function renderFeeds(body: HTMLElement): void {
       tile.classList.toggle("alert", !!(exp.call || exp.threat));
       tile.classList.toggle("threat", !!exp.threat);
       tile.querySelector(".state")!.textContent = stateLabel(exp);
+      const ask = exp.threat ? `t${exp.threat.id}${exp.threat.asked}` : exp.call ? `c${exp.call.id}${exp.call.asked}` : "";
+      if (ask !== (told.get(exp.id) ?? "")) {
+        told.set(exp.id, ask);
+        const who = game().crew.find((w) => w.id === exp.leadId)?.name ?? "The crew";
+        if (exp.threat) live.textContent = `${who}: ${entityDef(exp.threat.id).name} is close. Say something.`;
+        else if (exp.call) live.textContent = `${who} is waiting for your call.`;
+      }
     }
     if (focus !== null) fillDetail(runs.find((e) => e.id === focus)!);
   }
@@ -139,7 +160,7 @@ export function renderFeeds(body: HTMLElement): void {
         <div class="lbl"><i class="led"></i>${esc(lead ? lead.name : "Crew")}</div><div class="state"></div></div>`;
     };
     return `<div class="wall n${Math.min(runs.length, 6)}${focus !== null ? " focused" : ""}">${runs.map(tile).join("")}</div>
-      ${focus !== null ? `<div class="detail"></div><div class="bar"><button class="btn" data-wall>Back to the wall</button></div>` : `<div class="bar dim">Click a feed to enlarge it and answer from here.${lastRun() ? ` <button class="btn" data-replay>Replay the last run</button>` : ""}</div>`}`;
+      ${focus !== null ? `<div class="detail"></div><div class="bar"><button class="btn" data-wall>Back to the wall</button><button class="btn clip" data-clip>Clip the feed</button></div>` : `<div class="bar dim">${tapWord()} a feed to enlarge it and answer from here.${lastRun() ? ` <button class="btn" data-replay>Replay the last run</button>` : ""}</div>`}`;
   }
 
   // The enlarged feed: the last few radio lines and the question, if one is waiting.

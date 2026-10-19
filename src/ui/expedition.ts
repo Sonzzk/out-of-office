@@ -18,7 +18,10 @@ import type { GameState } from "../sim/state";
 import { game, update, watch, type Topic } from "../store";
 import { art, esc } from "./dom";
 import { attachClip } from "./clip";
+import { tapWord } from "../access";
 import { createBodycam, type Bodycam, type CamInput } from "./bodycam";
+
+const TAP = tapWord(); // "Tap" on a touch screen, "Click" with a mouse
 
 // What the run was worth once the crew and the kit are paid for.
 function profitLine(exp: Expedition): string {
@@ -39,10 +42,15 @@ export function renderExpedition(body: HTMLElement): void {
     <div class="mapwrap"><canvas class="map"></canvas></div>
     <div class="side"></div>`;
   const canvas = body.querySelector("canvas")!;
-  canvas.setAttribute("role", "img");
-  canvas.setAttribute("aria-label", "Facility map of the selected level. The radio log beside it describes what the crew finds.");
+  canvas.setAttribute("role", "application");
+  canvas.setAttribute("aria-label", "Facility map of the selected level. Use the arrow keys to move a cursor and Enter to drop or lift a pin. The radio log beside it describes what the crew finds.");
   const side = body.querySelector<HTMLElement>(".side")!;
   let pins: Pt[] = []; // route for the next run, visited in order
+  let cursor: Pt | null = null; // keyboard cursor on the map, for placing pins without a mouse
+  const mapSay = document.createElement("div"); // read out by screen readers when the cursor moves
+  mapSay.className = "sr";
+  mapSay.setAttribute("aria-live", "polite");
+  body.appendChild(mapSay);
   const picked = new Set<number>();
   let leadId: number | null = null;
   const dismissed = new Set<number>(); // finished runs whose debrief was closed
@@ -90,12 +98,35 @@ export function renderExpedition(body: HTMLElement): void {
     const scale = canvas.width / r.width;
     const x = Math.floor(((ev.clientX - r.left) * scale - ox) / cell);
     const y = Math.floor(((ev.clientY - r.top) * scale - oy) / cell);
-    if (x >= 0 && y >= 0 && x < lv.w && y < lv.h) {
-      const at = pins.findIndex((p) => p.x === x && p.y === y);
-      if (at >= 0) pins.splice(at, 1); // click a pin again to lift it
-      else if (pins.length < MAX_PINS) pins.push({ x, y });
+    if (x >= 0 && y >= 0 && x < lv.w && y < lv.h) togglePin(x, y);
+  });
+
+  function togglePin(x: number, y: number): void {
+    const at = pins.findIndex((p) => p.x === x && p.y === y);
+    if (at >= 0) pins.splice(at, 1); // click a pin again to lift it
+    else if (pins.length < MAX_PINS) pins.push({ x, y });
+    draw();
+    renderSide();
+  }
+
+  // Keyboard route planning: Tab to the map, arrows move a cursor, Enter drops or lifts a pin.
+  canvas.tabIndex = 0;
+  canvas.addEventListener("focus", () => draw());
+  canvas.addEventListener("blur", () => draw());
+  canvas.addEventListener("keydown", (ev) => {
+    if (current() || !canPlan()) return;
+    const lv = levelOf(game(), planLevel);
+    const step: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    if (step[ev.key]) {
+      ev.preventDefault();
+      const c = (cursor ??= { x: Math.floor(lv.w / 2), y: Math.floor(lv.h / 2) });
+      cursor = { x: Math.max(0, Math.min(lv.w - 1, c.x + step[ev.key][0])), y: Math.max(0, Math.min(lv.h - 1, c.y + step[ev.key][1])) };
+      mapSay.textContent = `Cursor at column ${cursor.x + 1}, row ${cursor.y + 1}. ${pins.some((p) => p.x === cursor!.x && p.y === cursor!.y) ? "A pin is here." : ""}`;
       draw();
-      renderSide();
+    } else if ((ev.key === "Enter" || ev.key === " ") && cursor) {
+      ev.preventDefault();
+      togglePin(cursor.x, cursor.y);
+      mapSay.textContent = `${pins.length} of ${MAX_PINS} pins.`;
     }
   });
 
@@ -241,7 +272,7 @@ export function renderExpedition(body: HTMLElement): void {
       ${busyList(s)}
       ${picked.size ? `<p class="dim">Up to ${MAX_CREW}. The team lead decides when to turn back.</p>` : ""}
       <h4>2. Drop pins</h4>
-      <p class="dim">${pins.length ? `${pins.length} of ${MAX_PINS} pins. The crew visits them in order, then heads home. Click a pin to lift it.` : `Click the map to drop up to ${MAX_PINS} pins. Dark areas are unexplored.`}
+      <p class="dim">${pins.length ? `${pins.length} of ${MAX_PINS} pins. The crew visits them in order, then heads home. ${TAP} a pin to lift it.` : `${TAP} the map to drop up to ${MAX_PINS} pins. Dark areas are unexplored.`}
       ${pins.length ? `<button class="btn" data-clearpins>Clear pins</button>` : ""}</p>
       <h4>3. Pack gear <span class="dim">(optional, used up)</span></h4>
       <div class="gear">${GEAR.map((g) => {
@@ -282,7 +313,7 @@ export function renderExpedition(body: HTMLElement): void {
           ${profitLine(exp)}</div>
           <button class="btn go" data-dismiss>Plan the next run</button>`
         : "";
-    side.innerHTML = `${tabs()}<canvas class="bodycam"></canvas><button class="btn clip" data-clip title="Save the last 30 seconds or so of the feed as a WebM">Clip last 30 seconds</button><div class="callbox"></div><div class="orders"></div>${head}<div class="radio inset" aria-live="polite"></div>${debrief}`;
+    side.innerHTML = `${tabs()}<canvas class="bodycam"></canvas><button class="btn clip" data-clip title="Save the recent feed as a WebM. The length is on the button.">Clip the feed</button><div class="callbox"></div><div class="orders"></div>${head}<div class="radio inset" aria-live="polite"></div>${debrief}`;
     logCount = 0;
     const camCanvas = side.querySelector<HTMLCanvasElement>("canvas.bodycam")!;
     cam = createBodycam(camCanvas, camInput(exp));
@@ -451,6 +482,11 @@ export function renderExpedition(body: HTMLElement): void {
         ? []
         : (exp.pins ?? [exp.waypoint]).filter((p) => exp.targets.some((t) => t.x === p.x && t.y === p.y))
       : pins;
+    if (cursor && !exp && document.activeElement === canvas) {
+      ctx.strokeStyle = "#f6f2dc";
+      ctx.lineWidth = Math.max(2, cell / 8);
+      ctx.strokeRect(ox + cursor.x * cell + 1, oy + cursor.y * cell + 1, cell - 2, cell - 2);
+    }
     route.forEach((mk, i) => {
       const cx = ox + mk.x * cell + cell / 2;
       const cy = oy + mk.y * cell + cell / 2;
@@ -496,7 +532,13 @@ export function renderExpedition(body: HTMLElement): void {
       ctx.fillStyle = "rgba(233,226,176,0.75)";
       ctx.font = `${12 * devicePixelRatio}px monospace`;
       ctx.textAlign = "center";
-      ctx.fillText("Unexplored. Click the map to drop pins, then send a crew.", w / 2, h - 14 * devicePixelRatio);
+      // Two short lines when one would run off the edge of a narrow map.
+      const line = `Unexplored. ${TAP} the map to drop pins, then send a crew.`;
+      if (ctx.measureText(line).width < w - 16 * devicePixelRatio) ctx.fillText(line, w / 2, h - 14 * devicePixelRatio);
+      else {
+        ctx.fillText("Unexplored.", w / 2, h - 28 * devicePixelRatio);
+        ctx.fillText(`${TAP} the map to drop pins.`, w / 2, h - 14 * devicePixelRatio);
+      }
       ctx.textAlign = "start";
     }
     ctx.fillStyle = "#e9e2b0";

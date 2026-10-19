@@ -3,22 +3,43 @@ import { EVENTS } from "../data/events";
 import { answerEvent, canChoose, choiceLabel } from "../sim/events";
 import { infectionStage } from "../sim/infection";
 import { makeRng } from "../sim/rng";
+import { FILTERS, firstToOpen, inboxCounts, inboxList, isPending, isPinned, type InboxFilter } from "../sim/inbox";
 import { fill, type GameState, type Memo } from "../sim/state";
 import { game, update, watch } from "../store";
 import { shownName } from "../privacy";
 import { esc } from "./dom";
+import "./inbox.css";
 
 export function renderInbox(body: HTMLElement): void {
   body.classList.add("inbox");
-  let openId: number | null = null;
+  let openId: number | null = firstToOpen(game())?.id ?? null;
+  let filter: InboxFilter = "all";
+  const markRead = (id: number | null) => {
+    const m = game().memos.find((x) => x.id === id);
+    if (m && !m.read) m.read = true;
+  };
+  markRead(openId); // painted by the watch below, which saves nothing: it only flags
   body.addEventListener("click", (e) => {
-    const pick = (e.target as HTMLElement).closest<HTMLElement>("[data-choice]");
+    const t = e.target as HTMLElement;
+    const pick = t.closest<HTMLElement>("[data-choice]");
     if (pick) {
       const [id, c] = pick.dataset.choice!.split(":").map(Number);
       update((s) => void answerEvent(s, id, c));
       return;
     }
-    const row = (e.target as HTMLElement).closest<HTMLElement>("[data-memo]");
+    const f = t.closest<HTMLElement>("[data-filter]");
+    if (f) {
+      filter = f.dataset.filter as InboxFilter;
+      const first = inboxList(game(), filter).pinned.concat(inboxList(game(), filter).rest)[0];
+      openId = first?.id ?? openId;
+      update((s) => void (first && (s.memos.find((m) => m.id === first.id)!.read = true)));
+      return;
+    }
+    if (t.closest("[data-readall]")) {
+      update((s) => s.memos.forEach((m) => (m.read = true)));
+      return;
+    }
+    const row = t.closest<HTMLElement>("[data-memo]");
     if (!row) return;
     openId = Number(row.dataset.memo);
     update((s) => {
@@ -26,18 +47,30 @@ export function renderInbox(body: HTMLElement): void {
       if (m) m.read = true;
     });
   });
+  const row = (s: GameState, m: Memo, current: Memo | undefined, vars: Record<string, string>) => {
+    const ask = isPending(m);
+    const mark = ask ? `<b class="ask" title="Needs your answer"><img src="./art/icons/U-warning.png" alt="">Decide</b> ` : isPinned(s, m) ? `<b class="pin" title="Pinned: unread story">pinned</b> ` : "";
+    return `<div class="msg ${m.read ? "" : "unread"} ${m === current ? "on" : ""} ${ask ? "decision" : ""}" data-memo="${m.id}">
+      <span>${mark}${esc(fill(m.subject, vars))}</span><span class="dim">${esc(fill(m.from, vars))} · D${m.day}</span></div>`;
+  };
   watch(body, () => {
     const s = game();
     const vars = { company: s.company, boss: shownName(s.bossName), phrase: s.catchphrase ?? "" };
-    const current = s.memos.find((m) => m.id === openId) ?? s.memos[0];
-    if (current && openId === null) current.read = true;
+    const current = s.memos.find((m) => m.id === openId) ?? firstToOpen(s);
+    if (current && !openId) openId = current.id;
+    const { pinned, rest } = inboxList(s, filter, current?.id);
+    const counts = inboxCounts(s);
     body.innerHTML = `
-      <div class="list inset">${s.memos
-        .map(
-          (m) => `<div class="msg ${m.read ? "" : "unread"} ${m === current ? "on" : ""}" data-memo="${m.id}">
-            <span>${m.event && m.event.choice === undefined ? `<b class="ask">!</b> ` : ""}${esc(fill(m.subject, vars))}</span><span class="dim">${esc(fill(m.from, vars))} · D${m.day}</span></div>`,
-        )
-        .join("")}</div>
+      <div class="lcol">
+        <div class="filters" role="toolbar" aria-label="Filter memos">${FILTERS.map(
+          (f) => `<button class="tab ${f.id === filter ? "on" : ""}" data-filter="${f.id}" aria-pressed="${f.id === filter}">${f.label}${f.id === "unread" && counts.unread ? ` ${counts.unread}` : ""}${f.id === "decisions" && counts.decisions ? ` ${counts.decisions}` : ""}</button>`,
+        ).join("")}<button class="tab" data-readall ${counts.unread ? "" : "disabled"}>Mark all read</button></div>
+        <div class="list inset">${
+          pinned.length + rest.length === 0
+            ? `<p class="dim empty">Nothing here.</p>`
+            : pinned.map((m) => row(s, m, current, vars)).join("") + (pinned.length && rest.length ? `<div class="sep dim">Earlier</div>` : "") + rest.map((m) => row(s, m, current, vars)).join("")
+        }</div>
+      </div>
       <div class="memo inset">${
         current ? `<b>FROM:</b> ${esc(fill(current.from, vars))}\n<b>TO:</b> ${esc(shownName(s.bossName))}\n<b>RE:</b> ${esc(fill(current.subject, vars))}\n\n${warp(s, current.id, esc(fill(current.body, vars)))}${current.event ? decision(s, current) : ""}` : "No memos."
       }</div>`;

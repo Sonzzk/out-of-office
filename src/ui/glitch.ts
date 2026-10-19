@@ -28,6 +28,55 @@ export function startGlitch(desk: HTMLElement, bossName: () => string): void {
     later(tick, rand(14_000, 26_000) / (1 + (stage - 2) * 0.9));
   };
   later(tick, 8_000);
+
+  // Stage four: now and then something plainly wrong, long enough to be sure of.
+  let lastWrong = Date.now() - 20_000;
+  const wrong = () => {
+    if (!isCalm() && stage >= 4 && !document.hidden && Date.now() - lastWrong > rand(25_000, 45_000)) {
+      lastWrong = Date.now();
+      if (Math.random() < 0.5) officeWall(desk, bossName());
+      else typingWindow(desk, bossName());
+    }
+    later(wrong, 3_000);
+  };
+  later(wrong, 6_000);
+}
+
+/** The desktop is gone for a moment; there is only the office floor, and it is full. */
+function officeWall(desk: HTMLElement, boss: string): void {
+  const work = desk.querySelector<HTMLElement>(".work");
+  if (!work || work.querySelector(".wrong-wall")) return;
+  const wall = document.createElement("div");
+  wall.className = "wrong-wall";
+  wall.setAttribute("aria-hidden", "true");
+  let html = `<div class="rows"></div>`;
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++) html += `<i class="desk" style="left:${c * 17 + 3}%;top:${r * 21 + 8}%"></i>`;
+  wall.innerHTML = `${html}<b></b>`;
+  wall.querySelector("b")!.textContent = `${boss.toUpperCase()}, YOU ARE HERE`;
+  work.appendChild(wall);
+  later(() => wall.remove(), rand(2200, 3000));
+}
+
+/** A window opens by itself and types a line nobody asked for. */
+function typingWindow(desk: HTMLElement, boss: string): void {
+  const work = desk.querySelector<HTMLElement>(".work");
+  if (!work || work.querySelector(".wrong-win")) return;
+  const win = document.createElement("div");
+  win.className = "win active wrong-win";
+  win.setAttribute("aria-hidden", "true");
+  win.style.left = `${Math.round(rand(40, Math.max(60, work.clientWidth - 360)))}px`;
+  win.style.top = `${Math.round(rand(30, Math.max(60, work.clientHeight - 200)))}px`;
+  win.innerHTML = `<div class="tb"><span>Memo - Untitled</span></div><div class="txt"></div>`;
+  work.appendChild(win);
+  const txt = win.querySelector<HTMLElement>(".txt")!;
+  const line = `${boss}. ${boss}. I am at my desk. I am at my desk. Please look up.`;
+  let i = 0;
+  const type = () => {
+    txt.textContent = line.slice(0, ++i);
+    if (i < line.length) later(type, 38);
+    else later(() => win.remove(), 700);
+  };
+  type();
 }
 
 function corruptTitle(desk: HTMLElement): void {

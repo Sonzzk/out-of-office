@@ -58,6 +58,30 @@ export function clearSave(): void {
   }
 }
 
+/** The save that was put aside by the last load, if any, as raw text. */
+export function setAsideSave(): string | null {
+  try {
+    return localStorage.getItem(BACKUP_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** True when a storage event says another tab wrote the save we are playing. */
+export function isForeignWrite(e: { key: string | null; newValue: string | null }): boolean {
+  return e.key === KEY && e.newValue !== null;
+}
+
+/** Calls fn once, the first time another tab writes this save. Two tabs overwrite each other. */
+export function watchOtherTab(fn: () => void): void {
+  let told = false;
+  window.addEventListener("storage", (e) => {
+    if (told || !isForeignWrite(e)) return;
+    told = true;
+    fn();
+  });
+}
+
 export function saveGame(state: GameState): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(state));

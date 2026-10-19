@@ -8,7 +8,7 @@ import { stepExpedition } from "../src/sim/expedition";
 import { learn } from "../src/sim/research";
 import { migrate, newGame, type GameState } from "../src/sim/state";
 import {
-  ACT3_MASTERED, beginDescent, deadCount, setEnding, canResign, descentBlock, endingFor, exitReady, resign, resolveDescent, startQuarter, storyStats,
+  ACT3_MASTERED, beginDescent, deadCount, setEnding, canResign, descentBlock, endingFor, exitReady, endingSlots, flag, resign, standing, resolveDescent, startQuarter, storyStats,
 } from "../src/sim/story";
 
 function company(seed = 5, crew = 3): GameState {
@@ -36,7 +36,7 @@ function readyForExit(s: GameState) {
 function atExit(seed = 5): GameState {
   const s = company(seed);
   readyForExit(s);
-  s.day = 19;
+  s.day = 29;
   s.act = 2;
   endDay(s);
   return s;
@@ -83,10 +83,83 @@ describe("story acts", () => {
     expect(s.act).toBe(2);
     expect(exitReady(s)).toBe(false);
     readyForExit(s);
-    endDay(s);
+    days(s, 1);
+    expect(s.act).toBe(2); // day 26: Act 2 still has things to say
+    days(s, 5);
     expect(s.act).toBe(3);
     expect(s.memos.some((m) => m.subject === "The Exit")).toBe(true);
     expect(descentBlock(s)).toBeNull();
+  });
+
+  it("holds act 3 until the key act 2 beats have arrived", () => {
+    const s = company(7);
+    readyForExit(s); // ready from the start: the Board could open the door on day 20
+    const arrived: Record<string, number> = {};
+    let act3Day = 0;
+    for (let d = 0; d < 40; d++) {
+      endDay(s);
+      if (s.act === 3 && !act3Day) act3Day = s.day;
+      for (const b of BEATS) if (b.act === 2 && flag(s, `beat.${b.id}`) && !(b.id in arrived)) arrived[b.id] = s.day;
+    }
+    expect(act3Day).toBeGreaterThan(20);
+    for (const id of ["story-badge", "appendix-c", "story-door", "exit-interviews"]) {
+      expect(arrived[id], id).toBeDefined();
+      expect(arrived[id], id).toBeLessThanOrEqual(act3Day);
+    }
+    expect(s.memos.some((m) => m.subject.startsWith("Appendix C"))).toBe(true);
+  });
+
+  it("lets leftover act 2 beats fire once act 3 has begun", () => {
+    const s = company(7);
+    readyForExit(s);
+    s.day = 40;
+    s.act = 2;
+    endDay(s);
+    expect(s.act).toBe(3); // day 41: past the hold
+    days(s, 4);
+    expect(s.memos.some((m) => m.subject.startsWith("Appendix C"))).toBe(true);
+  });
+
+  it("describes where you stand without naming an ending", () => {
+    const s = company();
+    s.infection = 60;
+    const text = standing(s).join(" ");
+    expect(text).toMatch(/far gone/);
+    for (const e of Object.values(ENDINGS)) expect(text).not.toContain(e.title);
+  });
+
+  it("lists every ending with locked slots for the unseen ones", () => {
+    const s = company();
+    setEnding(s, "daylight");
+    const slots = endingSlots(s);
+    expect(slots).toHaveLength(Object.keys(ENDINGS).length);
+    expect(slots.filter((x) => x.seen).map((x) => x.id)).toEqual(["daylight"]);
+  });
+
+  it("records who walked into the farmhouse and who did not", () => {
+    const s = atExit();
+    const exp = finishDescent(s, 1, true);
+    s.crew.find((w) => w.id === exp.crewIds[0])!.status = "dead";
+    resolveDescent(s);
+    expect(s.endingCrew!.missing).toHaveLength(1);
+    expect(s.endingCrew!.present.length + s.endingCrew!.missing.length).toBe(exp.crewIds.length);
+  });
+
+  it("ends the final run the moment the crew reaches the farmhouse", () => {
+    let reached = 0;
+    for (let seed = 1; seed <= 12; seed++) {
+      const s = atExit(seed);
+      const exp = beginDescent(s)!;
+      for (let i = 0; i < 1500 && exp.phase !== "done"; i++) stepExpedition(s, exp);
+      if (!exp.reached) continue;
+      reached++;
+      expect(exp.phase).toBe("done"); // no walk home, no wandering at the door
+      expect(exp.log.some((l) => l.includes("farmhouse") || l.includes("table") || l.includes("porch"))).toBe(true);
+      resolveDescent(s);
+      expect(s.ending).toBeTruthy();
+      expect(s.endingCrew!.present.length + s.endingCrew!.missing.length).toBe(exp.crewIds.length);
+    }
+    expect(reached).toBeGreaterThan(0);
   });
 
   it("files story memos below the rest of tonight's, not above", () => {
@@ -95,7 +168,7 @@ describe("story acts", () => {
     endDay(s);
     const subjects = s.memos.map((m) => m.subject);
     expect(subjects.indexOf("A note on who we are")).toBeGreaterThan(subjects.findIndex((x) => x.startsWith("Today's goal")));
-    expect(s.memos[0].subject).toMatch(/Today's goal|Payroll|Employee/);
+    expect(s.memos[0].subject).toMatch(/Today's goal|Daily digest/);
   });
 
   it("is deterministic for a seed", () => {

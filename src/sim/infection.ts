@@ -1,4 +1,6 @@
-import { DEAD_MEMOS, DEEP_CLEAN_AMOUNT, DEEP_CLEAN_COST, STAGE_MEMOS, STAGES } from "../data/infection";
+import { SKILL_LABEL, SKILLS } from "../data/crew";
+import { DEAD_MEMOS, DEEP_CLEAN_AMOUNT, DEEP_CLEAN_COST, STAGE_MEMOS, STAGES, type DeadMemo } from "../data/infection";
+import { quirkDef, skill, type Worker } from "./crew";
 import { Dice } from "./rng";
 import { addInfection } from "./office";
 import { addMemo, fill, type GameState } from "./state";
@@ -35,10 +37,37 @@ function deadWrite(state: GameState, stage: number): void {
   if (!due) return;
   const dice = new Dice((state.seed ^ Math.imul(state.day + 211, 2654435761)) >>> 0);
   const w = dice.pick(dead);
-  const m = dice.pick(DEAD_MEMOS);
+  const flags = (state.storyFlags ??= {});
+  const sent = flags.deadMemos ?? 0;
+  const m = pickDeadMemo(dice, sent, stage, flags.deadMemoLast ?? -1);
+  flags.deadMemos = sent + 1;
+  flags.deadMemoLast = DEAD_MEMOS.indexOf(m);
   state.events.last["dead-memo"] = state.day;
-  const vars = { name: w.name, words: w.lastWords ?? "...", boss: "{boss}" };
-  addMemo(state, { from: w.name, subject: m.subject, body: fill(m.body, vars) });
+  addMemo(state, { from: w.name, subject: fill(m.subject, deadVars(w)), body: fill(m.body, deadVars(w)) });
+}
+
+// The first few are small talk; the later ones know where the Exit is. Never the
+// same template twice running.
+export function pickDeadMemo(dice: Dice, sent: number, stage: number, last = -1): DeadMemo {
+  const tier = Math.min(2, Math.floor(sent / 3) + (stage >= 4 ? 1 : 0));
+  let pool = DEAD_MEMOS.filter((m) => m.tier <= tier && m.tier >= Math.max(0, tier - 1));
+  if (pool.length > 1) pool = pool.filter((m) => DEAD_MEMOS.indexOf(m) !== last);
+  return dice.pick(pool);
+}
+
+// {boss} stays a placeholder: it is filled in with the signed name when shown.
+function deadVars(w: Worker): Record<string, string | number> {
+  const best = [...SKILLS].sort((a, b) => skill(w, b) - skill(w, a))[0];
+  return {
+    name: w.name,
+    first: w.name.split(" ")[0],
+    words: w.lastWords ?? "...",
+    skill: SKILL_LABEL[best].toLowerCase(),
+    quirk: (quirkDef(w.quirks[0])?.name ?? "reliable").toLowerCase(),
+    rank: w.level,
+    day: w.diedOnDay ?? 0,
+    boss: "{boss}",
+  };
 }
 
 export const canDeepClean = (state: GameState) => state.infection > 0 && state.cash >= DEEP_CLEAN_COST;
