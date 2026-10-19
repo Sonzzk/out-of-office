@@ -31,6 +31,7 @@ if (await page.locator("[data-clockin]").count()) await page.click("[data-clocki
 
 await page.click('[data-open="hr"]');
 for (let i = 0; i < 3; i++) {
+  // Applicants fold away once there is a crew; unfold them for the next hire.
   const fold = page.locator('[data-fold][aria-expanded="false"]');
   if (await fold.count()) await fold.first().click();
   await page.locator("[data-hire]:not([disabled])").first().click();

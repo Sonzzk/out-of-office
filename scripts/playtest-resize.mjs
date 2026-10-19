@@ -52,7 +52,7 @@ await dragEdge("e", -2000, 0);
 if ((await rect()).w < 220) fail("shrunk below minimum width");
 
 // Busy crew are listed on the map with the reason.
-await win.locator("[data-hire]:not([disabled])").first().click();
+await win.locator('[data-fold][aria-expanded="false"]').first().click({ timeout: 400 }).catch(() => {}); await win.locator("[data-hire]:not([disabled])").first().click();
 await win.locator('[data-job="overtime"]').first().click();
 const dlg = page.locator(".win.dialog [data-ok], .win.dialog .btn").first();
 if (await page.locator(".win.dialog").count()) await dlg.click();

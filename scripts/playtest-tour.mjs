@@ -79,7 +79,7 @@ const load = async (c, saveFile, query = "fast") => {
   await page.click('[data-open="hr"]');
   await page.waitForTimeout(800);
   await mark(c, "04-hr-empty", "HR Roster before hiring");
-  for (let i = 0; i < 2; i++) { await page.locator("[data-hire]:not([disabled])").first().click(); await page.waitForTimeout(500); }
+  for (let i = 0; i < 2; i++) { await page.locator('[data-fold][aria-expanded="false"]').first().click({ timeout: 400 }).catch(() => {}); await page.locator("[data-hire]:not([disabled])").first().click(); await page.waitForTimeout(500); }
   await mark(c, "05-hired", "Two hires");
   await page.click('[data-open="map"]');
   const map = page.locator('.win[data-app="map"]');

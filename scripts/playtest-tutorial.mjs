@@ -30,7 +30,7 @@ let page = await fresh(51);
 console.log("start:", await stepText(page), "| pulsing icon:", await page.locator(".tut-hint").getAttribute("data-open"));
 await page.screenshot({ path: "shots/tutorial-1-hire.png" });
 await page.click('[data-open="hr"]');
-await page.locator("[data-hire]:not([disabled])").first().click();
+await page.locator('[data-fold][aria-expanded="false"]').first().click({ timeout: 400 }).catch(() => {}); await page.locator("[data-hire]:not([disabled])").first().click();
 await page.waitForTimeout(200);
 console.log("after hire:", await stepText(page), "| pulsing icon:", await page.locator(".tut-hint").getAttribute("data-open"));
 await page.screenshot({ path: "shots/tutorial-2-send.png" });
