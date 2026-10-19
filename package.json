@@ -5,8 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run typecheck && vite build",
     "preview": "vite preview",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "shot": "node scripts/shot.mjs",
     "balance": "vite-node scripts/balance.ts 100 90",
@@ -16,6 +19,7 @@
     "tour": "node scripts/playtest-tour.mjs"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
     "playwright-core": "^1.64.1",
     "typescript": "^5.9.3",
     "vite": "^6.4.4",
