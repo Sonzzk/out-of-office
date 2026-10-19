@@ -30,7 +30,11 @@ await page.waitForSelector("#desk .ic, [data-clockin]");
 if (await page.locator("[data-clockin]").count()) await page.click("[data-clockin]");
 
 await page.click('[data-open="hr"]');
-for (let i = 0; i < 3; i++) await page.locator("[data-hire]:not([disabled])").first().click();
+for (let i = 0; i < 3; i++) {
+  const fold = page.locator('[data-fold][aria-expanded="false"]');
+  if (await fold.count()) await fold.first().click();
+  await page.locator("[data-hire]:not([disabled])").first().click();
+}
 const hr = page.locator('.win[data-app="hr"]');
 // The last hire goes on a safe contract instead of into Level 0.
 await hr.locator('[data-job="contract"]').last().click();
