@@ -19,3 +19,17 @@ Blender scene built by a script, rendered as layers, and shipped as small PNGs.
 
 Room props are low poly on purpose. Entities are not: they are sculpted from
 metaballs with skin-modifier fingers and displacement.
+
+## Walking the office
+
+`walk.py` builds the same scene and bakes its Cycles lighting into atlases, so
+the game can show it in real-time 3D (`src/ui/walk3d.ts`, three.js, loaded only
+when you press **Stand up**):
+
+    blender --background --factory-startup --python walk.py -- <outdir> [atlas size] [samples]
+    python3 build_walk.py <outdir>/walk ../../public/walk
+
+It writes `office.glb` (one mesh per collection: `base`, every `up_*` tier and
+both `fx_door_*` states), the lightmaps `base` (lights on), `dark` (lights out)
+and `props` (all upgrade props), and `figure.glb` (the hall entity, full detail).
+At 4096 / 256 samples the bake takes about 13 minutes on the RTX 3060.

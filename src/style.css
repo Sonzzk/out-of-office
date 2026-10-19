@@ -293,3 +293,16 @@ button:focus-visible, .btn:focus-visible, .tb button:focus-visible, .taskbar but
 @keyframes office-hint { 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { .office-hint { animation: none; } .office canvas { transition: none !important; } }
 .office .toast { z-index: 2; }
+.office-stand { position: absolute; right: 14px; bottom: 14px; z-index: 1; font: inherit; font-size: 13px; padding: 5px 12px;
+  background: rgba(20,17,10,.75); color: #f2e6b8; border: 1px solid #8a7a4a; cursor: pointer; }
+.office-stand:hover, .office-stand:focus-visible { background: rgba(60,50,25,.9); }
+/* walking the office (src/ui/walk3d.ts) */
+.walk { position: absolute; inset: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+.walk canvas { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; display: block; cursor: crosshair; }
+@media (orientation: portrait) { .walk canvas { object-fit: contain; } }
+.walk-hint { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); padding: 4px 10px; font-size: 14px;
+  color: #f2e6b8; background: rgba(0,0,0,.55); text-shadow: 1px 1px 0 #000; cursor: pointer; }
+.walk-help { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); font-size: 12px; color: #cdbf8f;
+  text-shadow: 1px 1px 0 #000; pointer-events: none; opacity: .8; white-space: nowrap; }
+.walk-stick { position: absolute; width: 70px; height: 70px; margin: -35px 0 0 -35px; border-radius: 50%;
+  border: 2px solid rgba(242,230,184,.5); pointer-events: none; }

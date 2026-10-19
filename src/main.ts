@@ -17,7 +17,7 @@ import { mountDesktop } from "./ui/desktop";
 import { dialog } from "./ui/windows";
 import { setStage } from "./ui/glitch";
 import { setUnease } from "./ui/uncanny";
-import { debugOffice, mountOffice, setOfficeUnease } from "./ui/office3d";
+import { debugOffice, debugWalk, mountOffice, setOfficeUnease } from "./ui/office3d";
 
 // URL switches for testing: ?seed=7 starts a fresh game, ?fast skips the
 // boot delays, ?unease=0.8 previews how the desktop feels when infected.
@@ -47,7 +47,7 @@ void boot(document.body, state, params.has("fast")).then(() => {
   // they ask for the room with ?office.
   const skipRoom = (params.has("fast") || navigator.webdriver === true) && !params.has("office");
   mountOffice(document.body, desk, state, !skipRoom);
-  if (params.has("fast")) (window as unknown as { debugOffice: typeof debugOffice }).debugOffice = debugOffice;
+  if (params.has("fast")) Object.assign(window, { debugOffice, debugWalk });
   startPause(document.body);
   if (loadProblem) void setAsideNotice(loadProblem);
   // Two tabs on one save overwrite each other, so say so once.

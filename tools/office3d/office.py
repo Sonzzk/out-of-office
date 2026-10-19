@@ -492,31 +492,32 @@ LD = os.path.join(OUT, 'layers'); os.makedirs(LD, exist_ok=True)
 json.dump(meta, open(os.path.join(LD, 'meta.json'), 'w'), indent=1)
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, 'office.blend'))
 
-# ---------- render passes ----------
-def lc(name): return bpy.context.view_layer.layer_collection.children[name]
-def setup(visible, holdout=(), transparent=False):
-    for c in cols:
-        l = lc(c); l.exclude = c not in visible and c not in holdout; l.holdout = c in holdout
-    sc.render.film_transparent = transparent
-def lights(on):
-    M['lamp'].node_tree.nodes['Principled BSDF'].inputs['Emission Strength'].default_value = 6.0 if on else 0.0
-    WBG.default_value = (0.03, 0.03, 0.025, 1) if on else (0.004, 0.005, 0.006, 1)
-def render(name):
-    if ONLY and name not in ONLY: return
-    sc.render.filepath = os.path.join(LD, name + '.png')
-    bpy.ops.render.render(write_still=True); print('RENDERED', name)
+# ---------- render passes (skipped when walk.py only wants the scene) ----------
+if not globals().get('SCENE_ONLY'):
+    def lc(name): return bpy.context.view_layer.layer_collection.children[name]
+    def setup(visible, holdout=(), transparent=False):
+        for c in cols:
+            l = lc(c); l.exclude = c not in visible and c not in holdout; l.holdout = c in holdout
+        sc.render.film_transparent = transparent
+    def lights(on):
+        M['lamp'].node_tree.nodes['Principled BSDF'].inputs['Emission Strength'].default_value = 6.0 if on else 0.0
+        WBG.default_value = (0.03, 0.03, 0.025, 1) if on else (0.004, 0.005, 0.006, 1)
+    def render(name):
+        if ONLY and name not in ONLY: return
+        sc.render.filepath = os.path.join(LD, name + '.png')
+        bpy.ops.render.render(write_still=True); print('RENDERED', name)
 
-if 'closeup' in ONLY:   # review shot of the hall entity
-    import mathutils
-    bpy.ops.object.camera_add(location=(1.0, Y1 - 4.2, 1.5))
-    cu = bpy.context.object; cu.data.lens = 40
-    d = mathutils.Vector((1.45, Y1 - 0.45, 1.35)) - cu.location
-    cu.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
-    sc.camera = cu; lights(True); setup({'base', 'lights', 'fx_door_closed', 'fx_figure'}); render('closeup'); sc.camera = cam
-lights(True); setup({'base', 'lights', 'fx_door_closed'}); render('base')
-lights(False); setup({'base', 'glow', 'fx_door_closed'}); render('dark')
-lights(True)
-for c in cols:
-    if c.startswith(('up_', 'fx_')):
-        setup({c, 'lights'}, holdout={'base'}, transparent=True); render(c)
-print('ALLDONE')
+    if 'closeup' in ONLY:   # review shot of the hall entity
+        import mathutils
+        bpy.ops.object.camera_add(location=(1.0, Y1 - 4.2, 1.5))
+        cu = bpy.context.object; cu.data.lens = 40
+        d = mathutils.Vector((1.45, Y1 - 0.45, 1.35)) - cu.location
+        cu.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
+        sc.camera = cu; lights(True); setup({'base', 'lights', 'fx_door_closed', 'fx_figure'}); render('closeup'); sc.camera = cam
+    lights(True); setup({'base', 'lights', 'fx_door_closed'}); render('base')
+    lights(False); setup({'base', 'glow', 'fx_door_closed'}); render('dark')
+    lights(True)
+    for c in cols:
+        if c.startswith(('up_', 'fx_')):
+            setup({c, 'lights'}, holdout={'base'}, transparent=True); render(c)
+    print('ALLDONE')

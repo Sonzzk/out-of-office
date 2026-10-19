@@ -25,11 +25,12 @@ const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => 
 const DITHER = 22;
 const SAT = 1.2; // colour boost, matched in build_assets.py
 
-type Mode = "room" | "desk";
+type Mode = "room" | "desk" | "walk";
 let mode: Mode = "desk";
 let root: HTMLElement;
 let view: HTMLCanvasElement;
 let hint: HTMLElement;
+let stand: HTMLButtonElement;
 let desk: HTMLElement;
 let unease = 0.15; // 0.15 (fresh) .. 1 (fully infected), same scale as the desktop
 let lightsOn = true;
@@ -225,6 +226,46 @@ function sitDown(): void {
   }, 800);
 }
 
+/** Get up from the desk and walk the office in real-time 3D (walk3d.ts, loaded on first use). */
+async function standUp(): Promise<void> {
+  if (busy || mode !== "room") return;
+  busy = true;
+  stand.textContent = "Standing up...";
+  try {
+    const walk = await import("./walk3d");
+    walkDebug = walk.debugWalk;
+    await walk.startWalk(root, {
+      state: () => game() ?? stateRef,
+      unease: () => (isCalm() ? Math.min(unease, 0.2) : unease),
+      figure: () => figure,
+      setFigure: (on) => (figure = on),
+      toast,
+      sitDown,
+      leave: () => {
+        mode = "room";
+        view.hidden = false;
+        stand.hidden = false;
+        hint.hidden = false;
+        draw(true);
+        view.focus({ preventScroll: true });
+      },
+    });
+    mode = "walk";
+    view.hidden = true;
+    stand.hidden = true;
+    hint.hidden = true;
+  } catch (err) {
+    console.warn("walking failed", err);
+    toast("Your legs", "You try to stand up. You stay seated.");
+  } finally {
+    stand.textContent = "Stand up";
+    busy = false;
+  }
+}
+let walkDebug: ((opts?: Record<string, unknown>) => unknown) | undefined;
+/** Test hook for the walking view (undefined until you have stood up once). */
+export const debugWalk = (opts: Record<string, unknown> = {}) => walkDebug?.(opts);
+
 /** Lean back from the screen and look at the room. */
 export function lookUp(): void {
   if (busy || mode === "room" || !root) return;
@@ -301,14 +342,18 @@ export function mountOffice(parent: HTMLElement, deskEl: HTMLElement, state: Gam
   root.hidden = true;
   root.innerHTML = `
     <canvas width="${W}" height="${H}" tabindex="0" role="img" aria-label="Your cubicle. A beige CRT, a corkboard, and a long fluorescent hallway."></canvas>
-    <div class="office-hint">Click the monitor to sit down</div>`;
+    <div class="office-hint">Click the monitor to sit down</div>
+    <button class="office-stand" title="Get up and walk around the office (W)">Stand up</button>`;
   parent.appendChild(root);
   view = root.querySelector("canvas")!;
   hint = root.querySelector(".office-hint")!;
+  stand = root.querySelector(".office-stand")!;
+  stand.addEventListener("click", () => void standUp());
   view.addEventListener("click", (e) => hit(e)?.act());
   view.addEventListener("mousemove", (e) => (view.style.cursor = hit(e) ? "pointer" : "default"));
   view.addEventListener("keydown", (e) => {
     if (e.key === "Enter" || e.key === " ") (e.preventDefault(), sitDown());
+    if (e.key === "w" || e.key === "W" || e.key === "ArrowUp") (e.preventDefault(), void standUp());
   });
   desk.querySelector("[data-lookup]")?.addEventListener("click", lookUp);
   onChange(() => mode === "room" && draw());
