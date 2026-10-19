@@ -78,6 +78,7 @@ if (!(await page.locator(".index .card").count())) fail("index filter shows noth
 await page.evaluate(() => { document.querySelector('.ic[data-open="ledger"]').click(); });
 await page.waitForSelector("[data-endday]");
 await page.click("[data-endday]");
+await page.locator(".dialog .btn", { hasText: "Close anyway" }).click({ timeout: 1500 }).catch(() => {});
 await page.waitForSelector(".daycard");
 const card = (await page.locator(".daycard").textContent()) ?? "";
 if (!/Earned/.test(card) || !/Tomorrow/.test(card)) fail("day card is missing its parts");
