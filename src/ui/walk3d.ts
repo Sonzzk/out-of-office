@@ -89,8 +89,8 @@ function load(): Promise<void> {
         atlases[n] = t;
       });
     const [office, fig] = await Promise.all([
-      gl.loadAsync("./walk/office.glb"),
-      gl.loadAsync("./walk/figure.glb"),
+      gl.loadAsync("./walk/office.json"),
+      gl.loadAsync("./walk/figure.json"),
       atlas("base"),
       atlas("dark"),
       atlas("props"),

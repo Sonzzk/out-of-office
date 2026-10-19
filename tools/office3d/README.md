@@ -27,7 +27,7 @@ the game can show it in real-time 3D (`src/ui/walk3d.ts`, three.js, loaded only
 when you press **Stand up**):
 
     blender --background --factory-startup --python walk.py -- <outdir> [atlas size] [samples]
-    python3 build_walk.py <outdir>/walk ../../public/walk
+    python3 build_walk.py <outdir>/walk ../../public/walk   (glb -> glTF JSON, lightmaps -> JPEG)
 
 It writes `office.glb` (one mesh per collection: `base`, every `up_*` tier and
 both `fx_door_*` states), the lightmaps `base` (lights on), `dark` (lights out)
