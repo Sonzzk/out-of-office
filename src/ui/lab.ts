@@ -17,7 +17,7 @@ export function renderLab(body: HTMLElement): void {
     const s = game();
     const samples = s.loot.filter((l) => ITEMS[l.itemId].sampleOf);
     const empty = benches(s) - s.research.length;
-    const bench = Array.from({ length: benches(s) }, (_, i) => {
+    const bench = Array.from({ length: s.research.length }, (_, i) => {
       const r = s.research[i];
       return r
         ? (() => {
@@ -32,10 +32,13 @@ export function renderLab(body: HTMLElement): void {
             <span><b>On the bench:</b> ${esc(ITEMS[r.itemId].name)}<br><span class="dim">${esc(gain)}</span>
             <span class="prog"><i></i></span><span class="dim">Results when you close the books tonight.</span></span></div>`;
           })()
-        : `<div class="bench inset dim"><span class="jar"></span><span>Bench ${i + 1} is empty.</span></div>`;
+        : "";
     }).join("");
+    // Empty benches are always the last ones, so one short line covers them all.
+    const total = benches(s);
+    const emptyLine = empty > 0 ? `<p class="dim benchempty">${empty > 1 ? `Benches ${s.research.length + 1} to ${total}: empty.` : `Bench ${total}: empty.`}</p>` : "";
     const blurb = empty > 0 ? `<p class="dim">Crews sometimes bring back samples from things they survived. Smilers, Hounds and Facelings are the ones worth keeping: studying them makes every crew safer.</p>` : "";
-    body.innerHTML = `${bench}${blurb}
+    body.innerHTML = `${bench}${emptyLine}${blurb}
       <h3>Samples in storage</h3>
       ${
         samples.length

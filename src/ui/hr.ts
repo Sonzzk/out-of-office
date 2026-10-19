@@ -2,12 +2,13 @@ import { LEVEL_XP, SKILL_LABEL, SKILLS, SOURCE_INFO, type Skill } from "../data/
 import { ODD_MOODS } from "../data/infection";
 import { canTrain, hire, isVeteran, quirkDef, skill, train, trainCost, type Worker } from "../sim/crew";
 import { infectionStage } from "../sim/infection";
-import { trainWageRise } from "../sim/economy";
+import { trainWageRise, wage } from "../sim/economy";
 import { assign, contractPay, OVERTIME_PAY, OVERTIME_INFECTION } from "../sim/office";
 import { game, update, watch } from "../store";
 import { shownName } from "../privacy";
 import { art, esc, money } from "./dom";
 import { notify } from "./uncanny";
+import { nextSort, sortCrew, type SortDir, type SortKey } from "./crewsort";
 
 const SKILL_TIP: Record<Skill, string> = {
   nav: "finds the way and finds loot faster",
@@ -59,6 +60,15 @@ function statusText(w: Worker): string {
 // The applicant list can be folded away so the crew stays in view. Unset means: fold it once there is a crew.
 let applicantsOpen: boolean | undefined;
 
+let crewSort: { key: SortKey; dir: SortDir } = { key: "status", dir: "asc" };
+
+const COLUMNS: [SortKey, string][] = [
+  ["name", "Name"],
+  ["level", "Level"],
+  ["status", "Status"],
+  ["wage", "Wage/night"],
+];
+
 export function renderHR(body: HTMLElement): void {
   body.classList.add("hr");
   body.addEventListener("click", (e) => {
@@ -70,6 +80,15 @@ export function renderHR(body: HTMLElement): void {
       applicantsOpen = !(applicantsOpen ?? s.crew.filter((w) => w.status !== "dead").length < 2);
       update(() => {});
     }
+    const th = (e.target as HTMLElement).closest<HTMLElement>("[data-sort]");
+    if (th) {
+      crewSort = nextSort(crewSort, th.dataset.sort as SortKey);
+      update(() => {});
+    }
+    if ((e.target as HTMLElement).closest("[data-allcontract]"))
+      update((s) => {
+        for (const w of s.crew) if (w.status === "idle") assign(s, w.id, "contract");
+      });
     const course = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-train]");
     if (course)
       update((s) => {
@@ -102,7 +121,7 @@ export function renderHR(body: HTMLElement): void {
               ${skillBars(w)}
               ${quirkLines(w)}
               <button class="btn go" data-hire="${w.id}" ${s.cash < w.cost ? "disabled" : ""}>
-                ${w.source === "prisoner" ? "Bribe the warden" : "Hire"} · ${money(w.cost)}
+                ${w.source === "prisoner" ? "Bribe the warden" : "Hire"} · ${money(w.cost)} + ${money(SOURCE_INFO[w.source].wage)}/night
               </button>
               <div class="dim">Wage ${money(SOURCE_INFO[w.source].wage)}/night once hired.</div>
             </div>
@@ -115,15 +134,23 @@ export function renderHR(body: HTMLElement): void {
       ${crew.some((w) => w.status === "idle") ? `<p class="dim">Idle crew can take a safe contract (small pay, no risk) or unpaid overtime ($${OVERTIME_PAY}, but the building takes ${OVERTIME_INFECTION}% infection and the room may talk back). Both pay when the books close.</p>` : ""}
       ${
         crew.length
-          ? `<div class="roster">${crew
+          ? `${crew.filter((w) => w.status === "idle").length > 1 ? `<button class="btn" data-allcontract title="Every idle worker takes a safe contract. No risk, back tonight.">Send all idle to safe contract</button>` : ""}
+            <div class="roster"><table class="crewtable"><thead><tr>${COLUMNS.map(
+              ([k, label]) =>
+                `<th scope="col" aria-sort="${crewSort.key === k ? (crewSort.dir === "asc" ? "ascending" : "descending") : "none"}"><button class="sortbtn" data-sort="${k}" title="Sort by ${label.toLowerCase()}">${label}${crewSort.key === k ? (crewSort.dir === "asc" ? " ▲" : " ▼") : ""}</button></th>`,
+            ).join("")}</tr></thead><tbody>${sortCrew(
+              crew.map((w) => ({ id: w.id, name: w.name, level: w.level, status: w.status as "idle" | "busy" | "out", wage: wage(w), w })),
+              crewSort.key,
+              crewSort.dir,
+            )
               .map(
-                (w) => `<div class="crewrow inset">
-                <img src="${art.portrait(w.portrait)}" alt="">
-                <div class="info">
-                  <div class="top"><span class="nm">${esc(w.name)}</span>
-                    <span class="lv">Lv ${w.level}</span>${isVeteran(w) ? `<span class="badge">VETERAN</span>` : ""}
-                    ${xpBar(w)}<span class="dim st">${statusText(w)}</span></div>
-                  ${skillBars(w)}
+                ({ w, wage: pay }) => `<tr class="crewrow">
+                <td class="nm"><img src="${art.portrait(w.portrait)}" alt="">${esc(w.name)}${isVeteran(w) ? ` <span class="badge">VETERAN</span>` : ""}</td>
+                <td>Lv ${w.level} ${xpBar(w)}</td>
+                <td class="dim">${statusText(w)}</td>
+                <td>${money(pay)}</td></tr>
+                <tr class="crewmore"><td colspan="4">
+                  <div class="skills">${skillBars(w)}</div>
                   ${quirkLines(w)}${oddMood(w, infectionStage(s))}
                   ${
                     w.status === "idle"
@@ -131,9 +158,9 @@ export function renderHR(body: HTMLElement): void {
                         <button class="btn" data-job="overtime" data-worker="${w.id}" title="Pays well. Nobody likes the Overtime Room.">Unpaid overtime +${money(OVERTIME_PAY)} (out today)</button></div>`
                       : ""
                   }
-                </div></div>`,
+                </td></tr>`,
               )
-              .join("")}${phantom(s)}</div>`
+              .join("")}${phantom(s)}</tbody></table></div>`
           : `<p class="dim">Nobody yet. Hire someone above.</p>`
       }
       ${
@@ -149,10 +176,6 @@ export function renderHR(body: HTMLElement): void {
 // Deep in the infection, HR lists one more employee than you hired.
 function phantom(s: ReturnType<typeof game>): string {
   if (infectionStage(s) < 3) return "";
-  return `<div class="crewrow inset phantom">
-    <span class="nopt"></span>
-    <div class="info">
-      <div class="top"><span class="nm">${esc(shownName(s.bossName))}</span><span class="lv">Lv ?</span><span class="dim st">At your desk</span></div>
-      <div class="quirk"><b>Never left.</b> ${esc(s.catchphrase ?? "")}</div>
-    </div></div>`;
+  return `<tr class="crewrow phantom"><td class="nm">${esc(shownName(s.bossName))}</td><td>Lv ?</td><td class="dim">At your desk</td><td>?</td></tr>
+    <tr class="crewmore"><td colspan="4"><div class="quirk"><b>Never left.</b> ${esc(s.catchphrase ?? "")}</div></td></tr>`;
 }

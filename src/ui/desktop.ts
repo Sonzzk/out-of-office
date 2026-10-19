@@ -19,7 +19,7 @@ import { startInfestation } from "./infestation";
 import { startTutorial } from "./tutorial";
 import { isManualPause, onPauseChange, togglePause } from "./pause";
 import { notify, startUncanny } from "./uncanny";
-import { dialog, initWindows, onWindowsChanged, openApp, openWindows, toggle } from "./windows";
+import { dialog, initWindows, onWindowsChanged, openApp, openWindows, tileWindows, toggle } from "./windows";
 
 export function mountDesktop(desk: HTMLElement, state: GameState): void {
   const list = apps(state);
@@ -78,6 +78,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   };
   for (const app of list) item(app.icon, app.title, () => openApp(app));
   items.appendChild(document.createElement("hr"));
+  item("./art/icons/U-document.png", "Tile windows", tileWindows);
   item("./art/icons/U-document.png", "Copy day summary", async () => {
     const text = daySummary(game());
     try {
@@ -122,6 +123,15 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
     true,
   );
   window.addEventListener("resize", () => setMenu(false));
+  // Number keys open the desktop apps in icon order. P (pause.ts) and Escape (windows.ts) are left alone.
+  document.addEventListener("keydown", (e) => {
+    if (!/^[1-9]$/.test(e.key) || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.repeat) return;
+    const t = e.target as HTMLElement;
+    if (t.matches?.("input, textarea, select") || t.isContentEditable) return;
+    if (!menu.hidden || openWindows().some((w) => w.id.startsWith("dlg-"))) return;
+    const app = list[Number(e.key) - 1];
+    if (app) openApp(app);
+  });
   start.addEventListener("click", (e) => {
     e.stopPropagation();
     setMenu(menu.hidden);
