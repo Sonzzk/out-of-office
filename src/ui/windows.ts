@@ -22,6 +22,8 @@ interface Win {
 }
 
 const open = new Map<string, Win>();
+const CASCADE = 28;
+let lastOpened: string | undefined;
 let z = 10;
 let desk: HTMLElement;
 const listeners: (() => void)[] = [];
@@ -147,13 +149,24 @@ export function openApp(app: AppDef, at?: { x: number; y: number }): HTMLElement
   el.dataset.app = app.id;
   const w = Math.min(app.w, desk.clientWidth - 8);
   const h = narrow ? desk.clientHeight - 8 : Math.min(app.h, desk.clientHeight - 8);
-  // Cascade new windows so they don't stack exactly on top of each other.
-  const offset = narrow ? 0 : (open.size % 6) * 26;
+  // Cascade: a new window sits a little down and right of the last one opened,
+  // and starts a fresh cascade when that would run out of the work area.
+  let cx = (desk.clientWidth - w) / 2;
+  let cy = 40;
+  const prev = lastOpened ? open.get(lastOpened) : undefined;
+  if (!narrow && prev && !prev.minimized && !prev.restore) {
+    const nx = prev.el.offsetLeft + CASCADE;
+    const ny = prev.el.offsetTop + CASCADE;
+    if (nx + w <= desk.clientWidth && ny + h <= desk.clientHeight - 4) {
+      cx = nx;
+      cy = ny;
+    }
+  }
   // The window must fit the room: pull it up rather than let its bottom hang off the screen.
-  const top = Math.max(0, Math.min(at?.y ?? (narrow ? 4 : 40 + offset), desk.clientHeight - h - 4));
+  const top = Math.max(0, Math.min(at?.y ?? (narrow ? 4 : cy), desk.clientHeight - h - 4));
   el.style.width = `${w}px`;
   el.style.height = `${h}px`;
-  el.style.left = `${at?.x ?? (desk.clientWidth - w) / 2 + offset}px`;
+  el.style.left = `${at?.x ?? cx}px`;
   el.style.top = `${top}px`;
   el.innerHTML = `
     <div class="tb"><span></span>
@@ -187,10 +200,33 @@ export function openApp(app: AppDef, at?: { x: number; y: number }): HTMLElement
   desk.appendChild(el);
   clamp(el);
   open.set(app.id, { el, title: app.title, minimized: false, restore: null, narrow });
+  if (!app.id.startsWith("dlg-")) lastOpened = app.id;
   app.render(el.querySelector(".body")!);
   sfx("open");
   focus(app.id);
   return el;
+}
+
+/** Lay the open, visible windows out in a grid that fills the work area. Phone mode has one window: nothing to do. */
+export function tileWindows(): void {
+  if (desk.clientWidth <= 640) return;
+  const wins = [...open.entries()].filter(([id, w]) => !id.startsWith("dlg-") && !w.minimized);
+  if (!wins.length) return;
+  const cols = Math.ceil(Math.sqrt(wins.length));
+  const rows = Math.ceil(wins.length / cols);
+  const cw = Math.floor(desk.clientWidth / cols);
+  const ch = Math.floor(desk.clientHeight / rows);
+  wins.forEach(([, w], i) => {
+    w.restore = null;
+    w.el.classList.remove("max");
+    Object.assign(w.el.style, {
+      left: `${(i % cols) * cw}px`,
+      top: `${Math.floor(i / cols) * ch}px`,
+      width: `${cw - 2}px`,
+      height: `${ch - 2}px`,
+    });
+  });
+  window.dispatchEvent(new Event("win-resized"));
 }
 
 /** A small Win95 message box. Resolves with the label of the button pressed. */

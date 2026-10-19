@@ -19,7 +19,7 @@ import { startInfestation } from "./infestation";
 import { startTutorial } from "./tutorial";
 import { isManualPause, onPauseChange, togglePause } from "./pause";
 import { notify, startUncanny } from "./uncanny";
-import { dialog, initWindows, onWindowsChanged, openApp, openWindows, toggle } from "./windows";
+import { dialog, initWindows, onWindowsChanged, openApp, openWindows, tileWindows, toggle } from "./windows";
 
 export function mountDesktop(desk: HTMLElement, state: GameState): void {
   const list = apps(state);
@@ -78,6 +78,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
   };
   for (const app of list) item(app.icon, app.title, () => openApp(app));
   items.appendChild(document.createElement("hr"));
+  item("./art/icons/U-document.png", "Tile windows", tileWindows);
   item("./art/icons/U-document.png", "Copy day summary", async () => {
     const text = daySummary(game());
     try {

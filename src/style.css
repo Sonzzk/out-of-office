@@ -263,3 +263,18 @@ button:focus-visible, .btn:focus-visible, .tb button:focus-visible, .taskbar but
 
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .feeds .btn.clip { margin: 0 0 0 auto; }
+
+/* HR crew table */
+.crewtable { width: 100%; border-collapse: collapse; }
+.crewtable th { text-align: left; padding: 0; border-bottom: 2px solid var(--sh); }
+.crewtable .sortbtn { all: unset; cursor: pointer; display: block; padding: 3px 4px; font-weight: bold; }
+.crewtable .sortbtn:hover, .crewtable .sortbtn:focus-visible { text-decoration: underline; }
+.crewtable td { padding: 3px 4px; vertical-align: middle; }
+.crewtable tr.crewrow { display: table-row; padding: 0; }
+.crewtable tr.crewrow td { border-top: 1px solid var(--sh); }
+.crewtable td.nm { display: table-cell; font-weight: bold; }
+.crewtable td.nm img { width: 20px; height: 25px; object-fit: cover; vertical-align: middle; margin-right: 6px; border: 1px solid var(--sh); }
+.crewtable .crewmore td { padding: 0 4px 6px 30px; }
+.crewtable .skills { display: flex; flex-wrap: wrap; gap: 2px 12px; }
+.crewtable .jobs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.lab .benchempty { margin: 4px 0; }

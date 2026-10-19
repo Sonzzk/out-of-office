@@ -18,7 +18,7 @@ import type { GameState } from "../sim/state";
 import { game, update, watch, type Topic } from "../store";
 import { art, esc } from "./dom";
 import { attachClip } from "./clip";
-import { tapWord } from "../access";
+import { access, tapWord } from "../access";
 import { createBodycam, type Bodycam, type CamInput } from "./bodycam";
 
 const TAP = tapWord(); // "Tap" on a touch screen, "Click" with a mouse
@@ -270,7 +270,7 @@ export function renderExpedition(body: HTMLElement): void {
             : `<p class="dim">Nobody available. Hire someone in HR Roster.</p>`
       }
       ${busyList(s)}
-      ${picked.size ? `<p class="dim">Up to ${MAX_CREW}. The team lead decides when to turn back.</p>` : ""}
+      ${picked.size ? `<p class="dim">Up to ${MAX_CREW}. ${access().relaxed === "wait" ? "The crew waits for you on calls." : "The team lead decides when to turn back."}</p>` : ""}
       <h4>2. Drop pins</h4>
       <p class="dim">${pins.length ? `${pins.length} of ${MAX_PINS} pins. The crew visits them in order, then heads home. ${TAP} a pin to lift it.` : `${TAP} the map to drop up to ${MAX_PINS} pins. Dark areas are unexplored.`}
       ${pins.length ? `<button class="btn" data-clearpins>Clear pins</button>` : ""}</p>
