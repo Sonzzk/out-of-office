@@ -1,6 +1,6 @@
 import { CREDITS } from "../data/credits";
 import { VERSION } from "../version";
-import { clearSave, exportSave, parseSave, saveGame } from "../save";
+import { backupActive, clearSave, exportSave, parseSave, restore, saveGame, saveToSlot, SLOT_COUNT, slotInfo, type SaveSource } from "../save";
 import { isPrivate, isStreamer, setPrivacy, setStreamer } from "../privacy";
 import { game, update } from "../store";
 import { esc } from "./dom";
@@ -10,6 +10,7 @@ import { refreshCalm } from "./uncanny";
 import { access, SCALES, setAccess, type Relaxed } from "../access";
 import { togglePause } from "./pause";
 import { dialog } from "./windows";
+import { apps } from "./apps";
 
 // The Employee Handbook: sound, privacy, your save file and the credits.
 export function renderHandbook(body: HTMLElement): void {
@@ -31,7 +32,11 @@ export function renderHandbook(body: HTMLElement): void {
       <h4>3. Your file</h4>
       <div class="row"><button class="btn" data-export>Save to file</button><button class="btn" data-import>Load from file</button><button class="btn" data-reset>Start over</button></div>
       <input type="file" accept="application/json,.json" data-file hidden>
-      <h4>4. Credits</h4>
+      <h4>4. Save slots</h4>
+      ${slotsSection()}
+      <h4>5. Hotkeys</h4>
+      ${hotkeysSection()}
+      <h4>6. Credits</h4>
       ${CREDITS.map((c) => `<div class="credit"><b>${esc(c.head)}</b>${c.lines.map((l) => `<p class="dim">${esc(l)}</p>`).join("")}</div>`).join("")}
       <p class="dim">Out of Office ${esc(VERSION)}</p>`;
   };
@@ -62,6 +67,10 @@ export function renderHandbook(body: HTMLElement): void {
     if (t.closest("[data-export]")) download();
     if (t.closest("[data-import]")) body.querySelector<HTMLInputElement>("[data-file]")!.click();
     if (t.closest("[data-reset]")) void reset();
+    const slot = t.closest<HTMLElement>("[data-slot-save]");
+    if (slot) void saveSlot(Number(slot.dataset.slotSave)).then(paint);
+    const load = t.closest<HTMLElement>("[data-slot-load]");
+    if (load) void loadSource(load.dataset.slotLoad!);
   });
   bindAccessibility(body);
   paint();
@@ -136,6 +145,46 @@ function bindAccessibility(body: HTMLElement): void {
   });
 }
 
+function slotsSection(): string {
+  const row = (label: string, src: SaveSource, canSave: boolean) => {
+    const i = slotInfo(src);
+    const what = i.empty ? "Empty" : `Day ${i.day}, ${esc(i.company ?? "")}`;
+    return `<div class="row"><span><b>${label}</b> <span class="dim">${what}</span></span><span>${canSave ? `<button class="btn" data-slot-save="${src}">Save here</button> ` : ""}<button class="btn" data-slot-load="${src}" ${i.empty ? "disabled" : ""}>Load</button></span></div>`;
+  };
+  const slots = Array.from({ length: SLOT_COUNT }, (_, i) => row(`Slot ${i + 1}`, i + 1, true)).join("");
+  return `<span class="dim">Your office saves itself as you play. Slots are copies you keep. Loading one sets the current office aside first.</span>
+      ${slots}${row("Previous day", "prevday", false)}${row("Before last load", "undo", false)}`;
+}
+
+function hotkeysSection(): string {
+  const keys = apps(game()).map((a, i) => `<li><kbd>${i + 1}</kbd> ${esc(a.title)}</li>`).join("");
+  return `<ul class="dim hotkeys">${keys}<li><kbd>P</kbd> Pause or resume runs</li><li><kbd>Esc</kbd> Close the top window or the Start menu</li></ul>
+      <span class="dim">Number keys do nothing while you are typing or a dialog is open.</span>`;
+}
+
+async function saveSlot(n: number): Promise<void> {
+  if (!slotInfo(n).empty) {
+    const a = await dialog("Employee Handbook", `Slot ${n} already holds an office. Overwrite it with Day ${game().day} of ${game().company}?`, ["Overwrite", "Cancel"]);
+    if (a !== "Overwrite") return;
+  }
+  const ok = saveToSlot(n, game());
+  if (!ok) await dialog("Employee Handbook", "The browser would not store that. Save to file instead.");
+}
+
+async function loadSource(raw: string): Promise<void> {
+  const src: SaveSource = raw === "prevday" || raw === "undo" ? raw : Number(raw);
+  const i = slotInfo(src);
+  if (i.empty) return;
+  const a = await dialog("Employee Handbook", `Load Day ${i.day} of ${i.company}? Your current office is kept under "Before last load".`, ["Load", "Cancel"]);
+  if (a !== "Load") return;
+  saveGame(game()); // so the set-aside copy is the office as it stands now
+  if (!restore(src)) {
+    await dialog("Employee Handbook", "That save could not be read. Nothing was changed.");
+    return;
+  }
+  location.href = location.pathname;
+}
+
 function download(): void {
   const blob = new Blob([exportSave(game())], { type: "application/json" });
   const a = document.createElement("a");
@@ -153,6 +202,7 @@ async function importFile(file: File): Promise<void> {
   }
   const answer = await dialog("Employee Handbook", `Replace your current office with Day ${loaded.day} of ${loaded.company}?`, ["Replace", "Cancel"]);
   if (answer !== "Replace") return;
+  backupActive(); // the office you replace stays under "Before last load"
   saveGame(loaded);
   location.href = location.pathname; // reload with the new save
 }

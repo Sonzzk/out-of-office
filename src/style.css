@@ -263,3 +263,6 @@ button:focus-visible, .btn:focus-visible, .tb button:focus-visible, .taskbar but
 
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .feeds .btn.clip { margin: 0 0 0 auto; }
+
+.handbook .hotkeys { margin: 4px 0; padding-left: 18px; }
+.handbook kbd { font: inherit; border: 1px solid currentColor; padding: 0 5px; }

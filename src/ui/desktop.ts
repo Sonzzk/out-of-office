@@ -122,6 +122,15 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
     true,
   );
   window.addEventListener("resize", () => setMenu(false));
+  // Number keys open the desktop apps in icon order. P (pause.ts) and Escape (windows.ts) are left alone.
+  document.addEventListener("keydown", (e) => {
+    if (!/^[1-9]$/.test(e.key) || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.repeat) return;
+    const t = e.target as HTMLElement;
+    if (t.matches?.("input, textarea, select") || t.isContentEditable) return;
+    if (!menu.hidden || openWindows().some((w) => w.id.startsWith("dlg-"))) return;
+    const app = list[Number(e.key) - 1];
+    if (app) openApp(app);
+  });
   start.addEventListener("click", (e) => {
     e.stopPropagation();
     setMenu(menu.hidden);
