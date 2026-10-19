@@ -376,6 +376,9 @@ export const ENDINGS: Record<string, EndingDef> = {
   },
 };
 
+// The order the endings are listed in, with locked slots for the unseen ones.
+export const ENDING_ORDER = ["daylight", "promotion", "acquired", "assimilated", "audit", "skeleton", "resigned", "looped"];
+
 export const QUARTER_MEMOS: { from: string; subject: string; body: string }[] = [
   { from: "The Board", subject: "Quarter {q}: the Board is pleased", body: "{boss},\n\nThe door is open again if you want it. Some people need the table more than once.\n\n- The Board" },
   { from: "HR", subject: "Quarter {q}: orientation", body: "Welcome back. Orientation is the same as last time. It is still in progress.\n\n- HR" },

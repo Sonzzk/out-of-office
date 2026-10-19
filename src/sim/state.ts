@@ -78,6 +78,7 @@ export interface GameState {
   act?: number; // story act: 1 The Job, 2 The Cost, 3 The Exit, 4 new quarter (see sim/story.ts)
   ending?: string; // set while an ending is on screen; cleared when the new quarter starts
   endings?: string[]; // every ending reached so far
+  endingCrew?: { present: string[]; missing: string[] }; // who walked into the farmhouse, and who did not
   storyFlags?: Record<string, number>; // story beats sent, strange memos answered, Derek, quarter
 }
 

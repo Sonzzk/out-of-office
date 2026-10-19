@@ -143,6 +143,7 @@ export function mountDesktop(desk: HTMLElement, state: GameState): void {
     showCalm();
   });
   showCalm();
+  addEventListener("ooo-calm", () => { refreshCalm(); showCalm(); }); // the Handbook can change it too
 
   const hum = desk.querySelector<HTMLButtonElement>("[data-hum]")!;
   const showHum = () => {

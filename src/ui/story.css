@@ -3,9 +3,11 @@
   background: #050400; color: #d8cf94; text-align: center; letter-spacing: .3em; cursor: pointer; animation: act-in .6s steps(6); }
 .act-card b { font-size: 34px; font-weight: normal; }
 .act-card span { margin-top: 10px; font-size: 14px; letter-spacing: .5em; }
-.act-card small { position: absolute; bottom: 48px; font-size: 10px; letter-spacing: .1em; opacity: .5; }
-.act-card.out { opacity: 0; transition: opacity 1.2s steps(8); pointer-events: none; }
+.act-card small { position: absolute; bottom: 48px; font-size: 13px; letter-spacing: .15em; color: #f4ecb8; opacity: .95; animation: act-hint 1.6s ease-in-out infinite alternate; }
+.act-card.out { opacity: 0; transition: opacity .3s linear; pointer-events: none; }
+@keyframes act-hint { from { opacity: .6; } }
 @keyframes act-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .act-card small { animation: none; } }
 
 #desk.act-2 .work { box-shadow: inset 0 0 120px rgba(40, 20, 0, .35); }
 #desk.act-3 .work { box-shadow: inset 0 0 160px rgba(0, 0, 0, .55); }
@@ -32,3 +34,76 @@
 .ending .n { opacity: .6; font-size: 11px; margin-bottom: 16px; }
 .ending button { font: inherit; padding: 8px 18px; background: #d8cf94; color: #1d1a0e; border: 2px solid; border-color: #efe9cc #6d684f #6d684f #efe9cc; cursor: pointer; letter-spacing: .1em; }
 @media (prefers-reduced-motion: reduce) { .act-card, .ending { animation: none; } }
+
+/* The Exit window: where you stand, and the endings as slots. */
+.exit .stand { margin: 4px 0 8px; padding-left: 18px; }
+.endlist { list-style: none; margin: 6px 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+.endlist li { display: flex; align-items: center; gap: 6px; padding: 2px 4px; }
+.endlist li.locked { opacity: .55; }
+.endlist .lock { width: 14px; height: 14px; flex: none; image-rendering: pixelated; }
+.ending .endlist li { border-bottom: 1px dotted rgba(216, 207, 148, .35); }
+
+/* A plate per ending, on the desk, for good. */
+.plaques { position: absolute; right: 14px; bottom: 12px; z-index: 2; display: flex; gap: 3px; padding: 5px 6px; background: #3a2a18; border: 2px solid; border-color: #6b5230 #1b1208 #1b1208 #6b5230; cursor: pointer; }
+.plaques i { width: 14px; height: 9px; background: #120c06; box-shadow: inset 1px 1px 0 #000; }
+.plaques i.seen { background: linear-gradient(#e2c56b, #a98a33); box-shadow: inset 1px 1px 0 #f6e6a2, 0 0 4px rgba(226, 197, 107, .5); }
+
+/* The end screen: crew and the slots. */
+.ending .label { font-size: 11px; letter-spacing: .4em; text-transform: uppercase; opacity: .6; margin-bottom: 4px; }
+.ending .crew { margin: 18px 0 0; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; }
+.ending .crew b { width: 100%; font-weight: normal; font-size: 11px; letter-spacing: .3em; text-transform: uppercase; opacity: .6; }
+.ending .crew .gone { text-decoration: line-through; opacity: .6; }
+.ending .crew em { font-style: normal; text-decoration: none; display: inline-block; color: #d65a43; font-size: 11px; letter-spacing: .1em; }
+
+/* The arrival: the body cam finds the farmhouse. */
+.arrival { position: fixed; inset: 0; z-index: 12001; overflow: hidden; background: #050604; color: #e6f0d8; font: bold 12px monospace; }
+.arrival .scene, .arrival .sky, .arrival .room { position: absolute; inset: 0; }
+.arrival .sky { background: linear-gradient(#0a0c0a, #1b1c12 62%, #2b2a14 62%, #1b1b0a); }
+.arrival .field { position: absolute; left: 0; right: 0; bottom: 0; top: 62%; background: repeating-linear-gradient(90deg, #26240f 0 3px, #323014 3px 7px, #1c1a0b 7px 10px); opacity: .85; }
+.arrival .house { left: 50%; top: 62%; width: 34vmin; height: 25vmin; transform: translate(-50%, -88%) scale(1.6); transform-origin: 50% 100%; animation: approach 9s cubic-bezier(.35, 0, .3, 1) both; position: absolute; filter: drop-shadow(0 0 3vmin rgba(255, 214, 120, .55)); }
+@keyframes approach { from { transform: translate(-50%, -88%) scale(.3); } }
+.arrival[data-phase="3"] .house, .arrival[data-phase="4"] .house { opacity: 0; transition: opacity 1s; }
+.arrival .house i { position: absolute; display: block; }
+.arrival .roof { left: -6%; right: -6%; top: 0; height: 38%; background: #3a2c1a; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.arrival .walls { left: 0; right: 0; top: 38%; bottom: 0; background: #6b5a3a; }
+.arrival .win { top: 48%; width: 18%; height: 22%; background: #ffe39a; box-shadow: 0 0 2vmin #ffd36a; animation: lit 2.2s ease-in-out infinite alternate; }
+.arrival .win.a { left: 10%; } .arrival .win.b { right: 10%; } .arrival .win.c { left: 41%; top: 44%; width: 18%; height: 16%; }
+.arrival .door { left: 41%; width: 18%; bottom: 0; height: 30%; background: #2a1d0f; }
+@keyframes lit { from { opacity: .85; } }
+.arrival .room { background: radial-gradient(ellipse at 50% 55%, #3b2c14 0, #120c05 70%); opacity: 0; transition: opacity 1.2s; }
+.arrival[data-phase="3"] .room, .arrival[data-phase="4"] .room { opacity: 1; }
+.arrival .table { position: absolute; left: 50%; top: 52%; width: min(70vw, 560px); height: 26vh; transform: translateX(-50%); background: #5a4222; border-top: 3px solid #8a6a38; display: flex; justify-content: space-evenly; align-items: flex-start; padding-top: 10px; }
+.arrival .table i { width: 7vmin; height: 7vmin; max-width: 56px; max-height: 56px; border-radius: 50%; background: #d8d0b2; box-shadow: inset 0 0 0 3px #b9b08c; }
+.arrival .table i.empty { background: none; box-shadow: inset 0 0 0 2px #7a5f35; }
+.arrival .card { position: absolute; left: 50%; bottom: -9vh; transform: translateX(-50%) rotate(-2deg); padding: 10px 26px; background: #f1e9c4; color: #2a1d0f; font: italic 26px/1 "Brush Script MT", cursive, serif; box-shadow: 0 3px 0 rgba(0, 0, 0, .5); letter-spacing: .04em; }
+.arrival .hud { position: absolute; inset: 14px 18px auto; display: flex; gap: 22px; text-shadow: 1px 1px 0 #000; }
+.arrival .hud .led { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #d62b1b; margin-right: 6px; animation: act-hint .8s steps(1) infinite; }
+.arrival .hud .l { margin-left: auto; }
+.arrival[data-phase="2"] .hud .led, .arrival[data-phase="3"] .hud .led { animation: none; }
+.arrival .line { position: absolute; left: 0; right: 0; bottom: 9vh; text-align: center; padding: 0 20px; font-size: 15px; letter-spacing: .06em; text-shadow: 1px 1px 0 #000; }
+.arrival .scan { position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(transparent 0 2px, rgba(0, 0, 0, .28) 2px 3px); box-shadow: inset 0 0 14vmin #000; transition: opacity 1s; }
+.arrival[data-phase="2"] .scan { opacity: .5; }
+.arrival::after { content: ""; position: absolute; inset: 0; background: #070604; opacity: 0; transition: opacity .9s linear; pointer-events: none; }
+.arrival[data-phase="4"]::after { opacity: 1; }
+.arrival .skip { position: absolute; right: 16px; bottom: 14px; font: 11px monospace; padding: 3px 10px; background: none; color: #e6f0d8; border: 1px solid rgba(230, 240, 216, .4); cursor: pointer; opacity: .6; }
+
+/* The office, once it is infected: persistent looks by stage (off in calm mode). */
+.inf-vignette { position: absolute; inset: 0; z-index: 8000; pointer-events: none; opacity: 0; transition: opacity 2s; }
+#desk.inf-2 .work { filter: saturate(.88); }
+#desk.inf-3 .work { filter: saturate(.7) contrast(1.05) sepia(.12); }
+#desk.inf-4 .work { filter: saturate(.45) contrast(1.12) sepia(.22) hue-rotate(-12deg); }
+#desk.inf-2 .inf-vignette { opacity: 1; background: radial-gradient(ellipse at center, transparent 62%, rgba(10, 8, 0, .35)); }
+#desk.inf-3 .inf-vignette { opacity: 1; background: radial-gradient(ellipse at center, transparent 48%, rgba(10, 6, 0, .6)); }
+#desk.inf-4 .inf-vignette { opacity: 1; background: radial-gradient(ellipse at center, transparent 34%, rgba(30, 0, 0, .78)); }
+.wrong-wall { position: absolute; inset: 0; z-index: 8100; pointer-events: none; background: #8a8460; animation: wrong-in .15s steps(2); }
+.wrong-wall .rows { position: absolute; inset: 0; background:
+  repeating-linear-gradient(90deg, transparent 0 130px, rgba(0, 0, 0, .35) 130px 134px),
+  repeating-linear-gradient(0deg, #9b9568 0 70px, #6e6a4a 70px 140px); }
+.wrong-wall .desk { position: absolute; width: 96px; height: 44px; background: #4a432a; box-shadow: 0 6px 0 #2c2818; }
+.wrong-wall .desk::after { content: ""; position: absolute; left: 24px; top: -26px; width: 48px; height: 26px; background: #1a1d16; border: 3px solid #8a8460; }
+.wrong-wall b { position: absolute; left: 0; right: 0; bottom: 70px; text-align: center; font: 13px monospace; letter-spacing: .3em; color: #1a1708; }
+@keyframes wrong-in { from { opacity: 0; } }
+.wrong-win { position: absolute; z-index: 8100; width: 300px; padding: 0; pointer-events: none; }
+.wrong-win .tb { padding: 3px 6px; background: var(--title); color: #fff; }
+.wrong-win .txt { min-height: 90px; padding: 8px; background: #fff; color: #000; font: 13px/1.4 monospace; white-space: pre-wrap; }
+@media (prefers-reduced-motion: reduce) { .wrong-wall { animation: none; } .arrival .house { animation: none; } }

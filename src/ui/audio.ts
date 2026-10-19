@@ -53,6 +53,7 @@ export function isCalm(): boolean {
 
 export function setCalm(on: boolean): void {
   calm = on;
+  window.dispatchEvent(new Event("ooo-calm")); // the tray label listens
   try {
     localStorage.setItem(CALM_KEY, on ? "1" : "0");
   } catch {

@@ -92,3 +92,34 @@ describe("the infection writes back", () => {
     expect(heard).toBeLessThan(45);
   });
 });
+
+describe("the dead write in many voices", () => {
+  it("has at least twelve templates, ties them to the person and escalates", async () => {
+    const { DEAD_MEMOS } = await import("../src/data/infection");
+    const { newGame } = await import("../src/sim/state");
+    const { hire } = await import("../src/sim/crew");
+    const { nightInfection } = await import("../src/sim/infection");
+    expect(DEAD_MEMOS.length).toBeGreaterThanOrEqual(12);
+    expect(DEAD_MEMOS.some((m) => m.tier === 2 && /farmhouse|Exit|3 o'clock/.test(m.body))).toBe(true);
+    const s = newGame(5, "Amos");
+    for (const w of s.pool.slice(0, 2)) { s.cash += w.cost; hire(s, w.id); }
+    s.crew[0].status = "dead";
+    s.crew[0].diedOnDay = 4;
+    s.crew[0].lastWords = "Tell them I tried.";
+    s.infection = 90;
+    const bodies: string[] = [];
+    for (let d = 0; d < 14; d++) {
+      s.day++;
+      const n = s.memos.length;
+      nightInfection(s);
+      if (s.memos.length > n) bodies.push(s.memos[0].subject);
+    }
+    // No template twice running, and the later memos are not the early small talk.
+    for (let i = 1; i < bodies.length; i++) expect(bodies[i]).not.toBe(bodies[i - 1]);
+    expect(new Set(bodies).size).toBeGreaterThanOrEqual(8);
+    const all = s.memos.filter((m) => m.from === s.crew[0].name).map((m) => m.body).join("\n");
+    expect(all).not.toMatch(/\{(name|first|skill|quirk|rank|day|words)\}/);
+    expect(all).toContain("{boss}"); // filled in when shown
+    expect(s.memos.some((m) => m.body.includes("Day 4") || m.body.includes("Tell them I tried."))).toBe(true);
+  });
+});

@@ -30,7 +30,7 @@ function exitReady() {
   for (const e of INDEX.slice(0, 4)) learn(s, e.id, 3);
   learn(s, "level-10", 1);
   s.target.year = 3;
-  s.day = 19;
+  s.day = 29;
   s.act = 2;
   s.storyFlags = { shownAct: 2 };
   endDay(s);
