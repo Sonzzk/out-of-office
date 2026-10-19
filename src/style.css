@@ -278,3 +278,5 @@ button:focus-visible, .btn:focus-visible, .tb button:focus-visible, .taskbar but
 .crewtable .skills { display: flex; flex-wrap: wrap; gap: 2px 12px; }
 .crewtable .jobs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .lab .benchempty { margin: 4px 0; }
+.handbook .hotkeys { margin: 4px 0; padding-left: 18px; }
+.handbook kbd { font: inherit; border: 1px solid currentColor; padding: 0 5px; }
