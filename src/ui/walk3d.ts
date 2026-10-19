@@ -76,6 +76,31 @@ const spots: Spot[] = [
   { id: "end", at: B(1.45, 18, 1.1), reach: 1.5, label: "The dark doorway" },
 ];
 
+/** The meshes ship as glTF JSON with the buffer inlined as base64 (the Artifact host
+ *  serves no .glb, and its CSP blocks fetching data: URLs), so decode the buffer
+ *  here and hand the loader a GLB built in memory. */
+async function loadGltf(gl: GLTFLoader, url: string) {
+  const json = await (await fetch(url)).json();
+  const uri: string = json.buffers[0].uri;
+  const raw = atob(uri.slice(uri.indexOf(",") + 1));
+  delete json.buffers[0].uri;
+  const head = new TextEncoder().encode(JSON.stringify(json));
+  const jlen = (head.length + 3) & ~3, blen = (raw.length + 3) & ~3;
+  const glb = new Uint8Array(12 + 8 + jlen + 8 + blen);
+  const dv = new DataView(glb.buffer);
+  dv.setUint32(0, 0x46546c67, true); // "glTF"
+  dv.setUint32(4, 2, true);
+  dv.setUint32(8, glb.length, true);
+  dv.setUint32(12, jlen, true);
+  dv.setUint32(16, 0x4e4f534a, true); // "JSON"
+  glb.fill(0x20, 20, 20 + jlen);
+  glb.set(head, 20);
+  dv.setUint32(20 + jlen, blen, true);
+  dv.setUint32(24 + jlen, 0x004e4942, true); // "BIN"
+  for (let i = 0; i < raw.length; i++) glb[28 + jlen + i] = raw.charCodeAt(i);
+  return gl.parseAsync(glb.buffer, "");
+}
+
 function load(): Promise<void> {
   if (ready) return ready;
   ready = (async () => {
@@ -89,8 +114,8 @@ function load(): Promise<void> {
         atlases[n] = t;
       });
     const [office, fig] = await Promise.all([
-      gl.loadAsync("./walk/office.json"),
-      gl.loadAsync("./walk/figure.json"),
+      loadGltf(gl, "./walk/office.json"),
+      loadGltf(gl, "./walk/figure.json"),
       atlas("base"),
       atlas("dark"),
       atlas("props"),
