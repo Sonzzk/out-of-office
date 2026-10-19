@@ -19,7 +19,7 @@ if (await page.locator("#ob-name").count()) {
 }
 await page.waitForSelector("#desk .ic");
 await page.click('[data-open="hr"]');
-for (let i = 0; i < 2; i++) await page.locator("[data-hire]:not([disabled])").first().click();
+for (let i = 0; i < 2; i++) { await page.locator('[data-fold][aria-expanded="false"]').first().click({ timeout: 400 }).catch(() => {}); await page.locator("[data-hire]:not([disabled])").first().click(); }
 await page.click('[data-open="map"]');
 const map = page.locator('.win[data-app="map"]');
 for (const box of await map.locator("input[data-pick]").all()) await box.check();

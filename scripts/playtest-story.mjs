@@ -64,7 +64,7 @@ await page2.waitForSelector("#ob-name, #desk .ic");
 if (await page2.locator("#ob-name").count()) { await page2.fill("#ob-name", "Amos"); await page2.click("[data-sign]"); }
 await page2.waitForSelector("#desk .ic");
 await page2.click('[data-open="hr"]');
-for (let i = 0; i < 3; i++) await page2.locator("[data-hire]:not([disabled])").first().click().catch(() => {});
+for (let i = 0; i < 3; i++) { await page2.locator('[data-fold][aria-expanded="false"]').first().click({ timeout: 400 }).catch(() => {}); await page2.locator("[data-hire]:not([disabled])").first().click().catch(() => {}); }
 await page2.click('[data-open="map"]');
 const map2 = page2.locator('.win[data-app="map"]');
 for (const box of await map2.locator("input[data-pick]").all()) await box.check();

@@ -24,7 +24,7 @@ await page.screenshot({ path: "shots/loop-1-boot.png" });
 
 // Hire two applicants.
 await page.click('[data-open="hr"]');
-for (let i = 0; i < 2; i++) await page.locator("[data-hire]:not([disabled])").first().click();
+for (let i = 0; i < 2; i++) { await page.locator('[data-fold][aria-expanded="false"]').first().click({ timeout: 400 }).catch(() => {}); await page.locator("[data-hire]:not([disabled])").first().click(); }
 await page.screenshot({ path: "shots/loop-2-hired.png" });
 const crew = await page.locator(".hr .roster .crewrow").count();
 console.log("crew hired:", crew);
